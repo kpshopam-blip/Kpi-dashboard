@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KPI Dashboard ยอดขายพนักงาน</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-title">
+                <i class="fa-solid fa-chart-line"></i>
+                <h1>ระบบติดตาม KPI ยอดขาย</h1>
+            </div>
+            <div class="header-status">
+                <span id="loading-status" class="status-badge loading"><i class="fa-solid fa-spinner fa-spin"></i> กำลังโหลดข้อมูล...</span>
+            </div>
+        </header>
+
+        <!-- Filters Section -->
+        <section class="filters-section panel">
+            <div class="filter-group">
+                <label for="employee-select"><i class="fa-solid fa-user"></i> พนักงาน:</label>
+                <select id="employee-select">
+                    <option value="all">-- พนักงานทั้งหมด --</option>
+                    <!-- Options will be populated by JS -->
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="start-date"><i class="fa-regular fa-calendar-days"></i> จากวันที่:</label>
+                <input type="date" id="start-date">
+            </div>
+            <div class="filter-group">
+                <label for="end-date">- ถึงวันที่:</label>
+                <input type="date" id="end-date">
+            </div>
+            <button id="btn-filter" class="btn-primary"><i class="fa-solid fa-magnifying-glass"></i> ค้นหา</button>
+            <button id="btn-reset" class="btn-secondary"><i class="fa-solid fa-rotate-right"></i> ล้างค่า</button>
+        </section>
+
+        <!-- Main KPI Section -->
+        <section class="kpi-overview-section panel highlight-panel">
+            <h2><i class="fa-solid fa-trophy"></i> ภาพรวม KPI (เป้าหมาย 200,000 บาท)</h2>
+            <div class="kpi-progress-container">
+                <div class="kpi-meta">
+                    <span class="kpi-label">ความคืบหน้า KPI: <span id="kpi-percentage-text">0.00%</span></span>
+                    <span class="kpi-amount">ยอดรวม KPI: <span id="kpi-total-amount">฿0</span> / ฿200,000</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div id="kpi-progress-bar" class="progress-bar-fill" style="width: 0%"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Summary Cards Layout -->
+        <div class="summary-grid">
+            <!-- Card 1: ACC -->
+            <div class="summary-card panel card-acc" onclick="handleFilter('ACC')" style="cursor: pointer;" title="คลิกเพื่อดูเฉพาะกลุ่ม ACC">
+                <div class="card-header">
+                    <i class="fa-solid fa-headphones"></i>
+                    <h3>กลุ่ม ACC</h3>
+                </div>
+                <div class="card-body">
+                    <div id="acc-summary-container">
+                        <!-- จะถูกสร้างอัตโนมัติจาก script.js ตามการตั้งค่า -->
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-row total-row">
+                        <span>รวม KPI กลุ่ม ACC</span>
+                        <span id="kpi-acc-total" class="stat-value highlight">฿0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 2: Phone1 & Trade-in -->
+            <div class="summary-card panel card-phone1" onclick="handleFilter('Phone1')" style="cursor: pointer;" title="คลิกเพื่อดูเฉพาะ มือถือ 1/แลกเงิน">
+                <div class="card-header">
+                    <i class="fa-solid fa-mobile-screen"></i>
+                    <h3>มือถือ 1 / แลกเงิน</h3>
+                </div>
+                <div class="card-body">
+                    <div id="phone1-summary-container">
+                        <!-- จะถูกสร้างอัตโนมัติจาก script.js ตามการตั้งค่า -->
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-row total-row">
+                        <span>รวม KPI มือถือ 1/แลกเงิน</span>
+                        <span id="kpi-phone1-total" class="stat-value highlight">฿0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 3: Phone2 -->
+            <div class="summary-card panel card-phone2" onclick="handleFilter('Phone2')" style="cursor: pointer;" title="คลิกเพื่อดูเฉพาะ มือถือ 2">
+                <div class="card-header">
+                    <i class="fa-solid fa-mobile-retro"></i>
+                    <h3>มือถือ 2</h3>
+                </div>
+                <div class="card-body">
+                    <div id="phone2-summary-container">
+                        <!-- จะถูกสร้างอัตโนมัติจาก script.js ตามการตั้งค่า -->
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-row total-row">
+                        <span>รวม KPI มือถือ 2</span>
+                        <span id="kpi-phone2-total" class="stat-value highlight">฿0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table Section -->
+        <section class="data-table-section panel">
+            <div class="table-header-row">
+                <h2><i class="fa-solid fa-list"></i> รายการขายที่นำมาคำนวณ KPI (<span id="record-count">0</span> รายการ)</h2>
+                <!-- ไม่นำรายการที่จ่ายด้วยบัตรเครดิตมาแสดง/คำนวณ -->
+            </div>
+            <div class="table-responsive">
+                <table id="sales-table">
+                    <thead>
+                        <tr>
+                            <th>วันที่</th>
+                            <th>พนักงาน</th>
+                            <th>แหล่งข้อมูล</th>
+                            <th>ยี่ห้อ - รุ่น</th>
+                            <th>รูปแบบการขาย</th>
+                            <th class="text-right">ราคาขาย</th>
+                            <th class="text-right" style="color:#7f8c8d;">เงินดาวน์</th>
+                            <th class="text-right">ยอดจัด</th>
+                            <th class="text-center">%</th>
+                            <th class="text-right">KPI ที่ได้</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sales-table-body">
+                        <!-- Data will be populated here -->
+                        <tr>
+                            <td colspan="9" class="text-center empty-state">กำลังดึงข้อมูล หรือไม่มีข้อมูลในเงื่อนไขที่คุณเลือก</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <!-- Scripts -->
+    <script src="script.js"></script>
+</body>
+</html>
