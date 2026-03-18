@@ -11,6 +11,8 @@ let allData = [];
 let rawData = [];
 // ตัวแปรเก็บการตั้งค่า (Settings จากชีต)
 window.kpiSettings = [];
+// ตัวแปรเก็บข้อมูลพนักงานและเป้าหมาย
+window.usersData = [];
 
 // ==========================================
 // DOM ELEMENTS
@@ -82,6 +84,9 @@ async function initApp() {
             // เซฟการตั้งค่าไว้
             if (result.settings && result.settings.length > 0) {
                 window.kpiSettings = result.settings;
+            }
+            if (result.users && result.users.length > 0) {
+                window.usersData = result.users;
             }
             processLoadedData();
         } else {
@@ -396,17 +401,50 @@ function updateSummaryDOM(summaryData, total) {
     if (els.kpiPhone1Total) els.kpiPhone1Total.innerText = f(totalPhone1);
     if (els.kpiPhone2Total) els.kpiPhone2Total.innerText = f(totalPhone2);
 
+    // หาเป้าหมายที่แท้จริงจากพนักงานที่เลือก
+    const emp = els.employeeSelect.value;
+    let currentTarget = 0;
+    if (emp === 'all') {
+        // รวมเป้าหมายของทุกคน
+        currentTarget = window.usersData.reduce((sum, u) => sum + u.target, 0) || KPI_TARGET;
+    } else {
+        const user = window.usersData.find(u => u.name === emp);
+        currentTarget = user ? user.target : KPI_TARGET;
+    }
+
+    const targetElement = document.getElementById('kpi-target-amount');
+    if (targetElement) targetElement.innerText = f(currentTarget);
+
     // Set KPI Progress
-    const percent = Math.min((total / KPI_TARGET) * 100, 100);
-    els.kpiPercentage.innerText = percent.toFixed(2) + "%";
+    const actualPercent = (total / currentTarget) * 100;
+    const percent = Math.min(actualPercent, 100);
+    els.kpiPercentage.innerText = actualPercent.toFixed(2) + "%";
     els.kpiTotalAmount.innerText = f(total);
     els.kpiProgressBar.style.width = percent + "%";
     
+    // คำนวณดาว
+    let stars = 0;
+    if (actualPercent >= 200) stars = 5;
+    else if (actualPercent >= 150) stars = 3;
+    else if (actualPercent >= 100) stars = 2;
+    else if (actualPercent >= 50) stars = 1;
+
+    let starsHtml = '';
+    for (let i = 0; i < stars; i++) {
+        starsHtml += '<i class="fa-solid fa-star" style="color: #f1c40f; margin-left: 5px; text-shadow: 0 0 5px rgba(241,196,15,0.5);"></i>';
+    }
+    for (let i = stars; i < 5; i++) {
+        starsHtml += '<i class="fa-regular fa-star" style="color: #ccc; margin-left: 5px;"></i>';
+    }
+    
+    const kpiStars = document.getElementById('kpi-stars');
+    if (kpiStars) kpiStars.innerHTML = starsHtml;
+
     // Set colors based on achievement
-    if (percent >= 100) {
+    if (actualPercent >= 100) {
         els.kpiProgressBar.style.background = "linear-gradient(90deg, #2ecc71, #27ae60)";
         els.kpiPercentage.style.color = "#27ae60";
-    } else if (percent >= 50) {
+    } else if (actualPercent >= 50) {
         els.kpiProgressBar.style.background = "linear-gradient(90deg, #f39c12, #e67e22)";
         els.kpiPercentage.style.color = "#e67e22";
     } else {
@@ -467,6 +505,11 @@ function generateMockData() {
         { category: "iPhone / iPad มือ1-2", saleKeywords: "ผ่อน Kfinance", calculateBy: "100% ของยอดจัด", summaryName: "iPhone/iPad มือ 1-2 (Kfinance 100% ยอดจัด)" },
         { category: "iPhone แลกเงิน", saleKeywords: "iPhone แลกเงิน, ทุกแบบ", calculateBy: "100% ของยอดที่แลก", summaryName: "iPhone แลกเงิน (100% ยอดที่แลก)" },
         { category: "ทุกประเภท", saleKeywords: "บัตรเครดิต", calculateBy: "❌ ไม่นับยอด", summaryName: "" }
+    ];
+
+    window.usersData = [
+        { name: "สมหญิง", target: 50000 },
+        { name: "สมชาย", target: 80000 }
     ];
 
     return [
