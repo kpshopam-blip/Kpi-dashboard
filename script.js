@@ -13,6 +13,8 @@ let rawData = [];
 window.kpiSettings = [];
 // ตัวแปรเก็บข้อมูลพนักงานและเป้าหมาย
 window.usersData = [];
+// ตัวแปรหมวดหมู่ฟิลเตอร์ปัจจุบัน
+let currentCategoryFilter = null;
 
 // ==========================================
 // DOM ELEMENTS
@@ -125,6 +127,15 @@ function processLoadedData() {
 // ==========================================
 function populateEmployees() {
     const employees = new Set();
+    
+    // ดึงรายชื่อพนักงานจาก usersData เป็นหลัก
+    if (window.usersData && window.usersData.length > 0) {
+        window.usersData.forEach(u => {
+            if (u.name) employees.add(u.name);
+        });
+    }
+    
+    // ดึงจากข้อมูลจริงด้วยเผื่อตกหล่น
     allData.forEach(item => {
         if (item.employee) employees.add(item.employee);
     });
@@ -145,6 +156,14 @@ function handleFilter(categoryFilter = null) {
     const emp = els.employeeSelect.value;
     const startStr = els.startDate.value;
     const endStr = els.endDate.value;
+    
+    if (categoryFilter && typeof categoryFilter === "string") {
+        currentCategoryFilter = categoryFilter;
+    } else if (categoryFilter && categoryFilter.type) {
+        // เป็น Event ไม่ใช่ String ให้รักษาค่าเดิมของ currentCategoryFilter ไว้
+    } else {
+        currentCategoryFilter = null;
+    }
     
     // ตั้งค่าเวลาเริ่มต้นให้เป็น 00:00:00 ของวันนั้นๆ โดยใช้ Local Time
     let startTimestamp = 0;
@@ -174,14 +193,14 @@ function handleFilter(categoryFilter = null) {
         if (itemTime < startTimestamp || itemTime > endTimestamp) return false;
 
         // ถ้ามีการกด Card เพื่อ Filter หมวดหมู่
-        if (categoryFilter && typeof categoryFilter === "string") {
+        if (currentCategoryFilter) {
             const kpiResult = calculateItemKPI(item);
             
-            if (categoryFilter === "ACC") {
+            if (currentCategoryFilter === "ACC") {
                 if (!kpiResult.summaryName.includes("ACC")) return false;
-            } else if (categoryFilter === "Phone2") {
+            } else if (currentCategoryFilter === "Phone2") {
                 if (!(kpiResult.summaryName.includes("มือ 2") || kpiResult.summaryName.includes("มือ2"))) return false;
-            } else if (categoryFilter === "Phone1") {
+            } else if (currentCategoryFilter === "Phone1") {
                 // Phone 1 คือสิ่งที่ไม่ใช่ ACC และ ไม่ใช่ มือ 2
                 if (kpiResult.summaryName.includes("ACC") || kpiResult.summaryName.includes("มือ 2") || kpiResult.summaryName.includes("มือ2")) return false;
             }
@@ -190,13 +209,14 @@ function handleFilter(categoryFilter = null) {
         return true;
     });
 
-    updateDashboard(categoryFilter && typeof categoryFilter === "string");
+    updateDashboard();
 }
 
 function handleReset() {
     els.employeeSelect.value = 'all';
     els.startDate.value = '';
     els.endDate.value = '';
+    currentCategoryFilter = null;
     filteredData = [...allData];
     updateDashboard();
 }
@@ -333,7 +353,7 @@ function updateDashboard() {
     const sortedData = [...filteredData].sort((a,b) => new Date(b.date) - new Date(a.date));
 
     if (sortedData.length === 0) {
-        els.tableBody.innerHTML = '<tr><td colspan="9" class="text-center empty-state">ไม่มีข้อมูลในเงื่อนไขที่คุณเลือก</td></tr>';
+        els.tableBody.innerHTML = '<tr><td colspan="10" class="text-center empty-state">ไม่มีข้อมูลในเงื่อนไขที่คุณเลือก</td></tr>';
     }
 
     sortedData.forEach(item => {
@@ -355,6 +375,9 @@ function updateDashboard() {
 
     // Update Totals on Screen
     updateSummaryDOM(summaryData, totalKPIValue);
+
+    // อัปเดตการจัดอันดับพนักงานแยกสาขา
+    updateRankings();
 }
 
 function updateSummaryDOM(summaryData, total) {
@@ -508,8 +531,10 @@ function generateMockData() {
     ];
 
     window.usersData = [
-        { name: "สมหญิง", target: 50000 },
-        { name: "สมชาย", target: 80000 }
+        { name: "สมหญิง", branch: "สาขาจอหอ", target: 50000 },
+        { name: "สมชาย", branch: "สาขาโคกสวาย", target: 80000 },
+        { name: "สมเกียรติ", branch: "สาขาจอหอ", target: 60000 },
+        { name: "สมฤดี", branch: "สาขาโคกสวาย", target: 70000 }
     ];
 
     return [
@@ -521,5 +546,194 @@ function generateMockData() {
         { date: "2026-03-06T16:00:00", employee: "สมชาย", sheetName: "Phone2", brand: "Apple", model: "iPad Air 5", category: "", saleType: "ผ่อนLM+", price: 15000, downPayment: "", financeAmount: "" },
         // บัตรเครดิต (ไม่ถูกนับ)
         { date: "2026-03-07T16:00:00", employee: "สมหญิง", sheetName: "Phone2", brand: "Oppo", model: "Reno 11", category: "", saleType: "บัตรเครดิต", price: 9000, downPayment: "", financeAmount: "" },
+        // ข้อมูลเพิ่มเติมพนักงานสาขาอื่นๆ
+        { date: "2026-03-02T12:00:00", employee: "สมเกียรติ", sheetName: "Phone1", brand: "Apple", model: "iPhone 15", category: "", saleType: "ผ่อน Kfinance", price: 32000, downPayment: 2000, financeAmount: 30000 },
+        { date: "2026-03-03T10:00:00", employee: "สมฤดี", sheetName: "Phone1", brand: "Vivo", model: "V30", category: "", saleType: "ผ่อน Kfinance", price: 12000, downPayment: 0, financeAmount: 12000 }
     ];
+}
+
+function updateRankings() {
+    const rankingContainer = document.getElementById('ranking-container');
+    if (!rankingContainer) return;
+
+    rankingContainer.innerHTML = '';
+
+    // 1. ดึงเงื่อนไขวันที่
+    const startStr = els.startDate.value;
+    const endStr = els.endDate.value;
+    
+    let startTimestamp = 0;
+    if (startStr) {
+        const d = new Date(startStr);
+        d.setHours(0, 0, 0, 0);
+        startTimestamp = d.getTime();
+    }
+    
+    let endTimestamp = Infinity;
+    if (endStr) {
+        const d = new Date(endStr);
+        d.setHours(23, 59, 59, 999);
+        endTimestamp = d.getTime();
+    }
+
+    // 2. กรองข้อมูลเฉพาะวันที่และหมวดหมู่ (แต่ไม่กรองพนักงาน)
+    const dataForRanking = allData.filter(item => {
+        // กรองวันที่
+        let itemTime = new Date(item.date).getTime();
+        if (isNaN(itemTime)) return true;
+        if (itemTime < startTimestamp || itemTime > endTimestamp) return false;
+
+        // กรองหมวดหมู่ (ถ้ามี)
+        if (currentCategoryFilter) {
+            const kpiResult = calculateItemKPI(item);
+            if (currentCategoryFilter === "ACC") {
+                if (!kpiResult.summaryName.includes("ACC")) return false;
+            } else if (currentCategoryFilter === "Phone2") {
+                if (!(kpiResult.summaryName.includes("มือ 2") || kpiResult.summaryName.includes("มือ2"))) return false;
+            } else if (currentCategoryFilter === "Phone1") {
+                if (kpiResult.summaryName.includes("ACC") || kpiResult.summaryName.includes("มือ 2") || kpiResult.summaryName.includes("มือ2")) return false;
+            }
+        }
+        return true;
+    });
+
+    // 3. คำนวณหายอดรวม KPI ของพนักงานแต่ละคน
+    const employeeKpis = {};
+    
+    // ตั้งค่าเริ่มต้นยอดของทุกคนใน usersData ให้เป็น 0
+    if (window.usersData && window.usersData.length > 0) {
+        window.usersData.forEach(u => {
+            employeeKpis[u.name] = 0;
+        });
+    }
+
+    // รวมยอดจากข้อมูลยอดขาย
+    dataForRanking.forEach(item => {
+        if (item.employee) {
+            // หากไม่มีพนักงานนี้ใน usersData ให้ตั้งค่าเริ่มต้น
+            if (employeeKpis[item.employee] === undefined) {
+                employeeKpis[item.employee] = 0;
+            }
+            const kpiResult = calculateItemKPI(item);
+            employeeKpis[item.employee] += kpiResult.value;
+        }
+    });
+
+    // 4. จัดกลุ่มพนักงานตามสาขา
+    const branchGroups = {};
+    const selectedEmp = els.employeeSelect.value;
+
+    if (window.usersData && window.usersData.length > 0) {
+        window.usersData.forEach(u => {
+            const branchName = u.branch || "ไม่ระบุสาขา";
+            if (!branchGroups[branchName]) {
+                branchGroups[branchName] = [];
+            }
+            
+            const kpiValue = employeeKpis[u.name] || 0;
+            branchGroups[branchName].push({
+                name: u.name,
+                target: u.target || KPI_TARGET,
+                kpi: kpiValue,
+                percent: u.target > 0 ? (kpiValue / u.target) * 100 : 0
+            });
+        });
+    } else {
+        // ถ้าไม่มีข้อมูลผู้ใช้เลย (เช่น หน้าเว็บพัง) ให้เอาเฉพาะที่มีจากยอดขาย
+        const defaultBranch = "ไม่ระบุสาขา";
+        branchGroups[defaultBranch] = [];
+        for (const [name, kpiValue] of Object.entries(employeeKpis)) {
+            branchGroups[defaultBranch].push({
+                name: name,
+                target: KPI_TARGET,
+                kpi: kpiValue,
+                percent: (kpiValue / KPI_TARGET) * 100
+            });
+        }
+    }
+
+    // 5. วาดแต่ละสาขาลงใน HTML
+    const sortedBranches = Object.keys(branchGroups).sort();
+    
+    if (sortedBranches.length === 0) {
+        rankingContainer.innerHTML = '<div class="text-center empty-state" style="width: 100%;">ไม่มีข้อมูลจัดอันดับ</div>';
+        return;
+    }
+
+    sortedBranches.forEach(branchName => {
+        const members = branchGroups[branchName];
+        
+        // เรียงลำดับสมาชิกในแต่ละสาขาตามยอด KPI จากมากไปน้อย
+        members.sort((a, b) => b.kpi - a.kpi);
+
+        // สร้างบอร์ดการ์ดสำหรับสาขานี้
+        const card = document.createElement('div');
+        card.className = 'ranking-card';
+        
+        // หัวข้อการ์ด
+        card.innerHTML = `
+            <div class="ranking-card-header">
+                <i class="fa-solid fa-store"></i>
+                <span>${branchName}</span>
+            </div>
+            <div class="ranking-list"></div>
+        `;
+        
+        const listContainer = card.querySelector('.ranking-list');
+
+        members.forEach((member, index) => {
+            const rank = index + 1;
+            let rankClass = 'rank-other';
+            let rankBadgeContent = rank;
+
+            // กำหนดไอคอนเหรียญรางวัล
+            if (rank === 1) {
+                rankClass = 'rank-1';
+                rankBadgeContent = '<i class="fa-solid fa-trophy"></i>';
+            } else if (rank === 2) {
+                rankClass = 'rank-2';
+                rankBadgeContent = '<i class="fa-solid fa-medal"></i>';
+            } else if (rank === 3) {
+                rankClass = 'rank-3';
+                rankBadgeContent = '<i class="fa-solid fa-award"></i>';
+            }
+
+            // จัดรูปแบบจำนวนเงิน
+            const f = (num) => "฿" + (Number(num)||0).toLocaleString('th-TH');
+            const percentWidth = Math.min(member.percent, 100);
+            
+            // เลือกสีหลอดตามผลงาน
+            let progressBg = "var(--primary-color)";
+            if (member.percent >= 100) progressBg = "var(--success-color)";
+            else if (member.percent >= 50) progressBg = "var(--warning-color)";
+
+            // ตรวจสอบว่าพนักงานคนนี้โดนไฮไลท์อยู่หรือไม่
+            const isHighlighted = (selectedEmp !== 'all' && selectedEmp === member.name);
+            const highlightedClass = isHighlighted ? 'highlighted' : '';
+
+            const itemHTML = `
+                <div class="ranking-item ${highlightedClass}" title="เป้าหมาย: ${f(member.target)}">
+                    <div class="rank-badge ${rankClass}">${rankBadgeContent}</div>
+                    <div class="ranking-info">
+                        <div class="ranking-name-row">
+                            <span class="ranking-name">${member.name}</span>
+                            <span class="ranking-value">${f(member.kpi)}</span>
+                        </div>
+                        <div class="ranking-progress-container">
+                            <div class="ranking-progress-bg">
+                                <div class="ranking-progress-fill" style="width: ${percentWidth}%; background-color: ${progressBg};"></div>
+                            </div>
+                            <div class="ranking-meta">
+                                <span>ความคืบหน้า</span>
+                                <span>${member.percent.toFixed(1)}%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            listContainer.innerHTML += itemHTML;
+        });
+
+        rankingContainer.appendChild(card);
+    });
 }
