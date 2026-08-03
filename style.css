@@ -513,3 +513,84 @@ tbody tr:hover {
     margin-top: 1px;
 }
 
+/* ========== MONTHLY BREAKDOWN TABLE & BRAND FILTER ========== */
+.brand-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8fafc;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.filter-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--dark-text);
+    margin-right: 4px;
+}
+
+.btn-brand {
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background-color: white;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-brand:hover {
+    background-color: #f1f5f9;
+    color: var(--primary-color);
+}
+
+.btn-brand.active {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    box-shadow: 0 2px 4px rgba(74, 110, 224, 0.25);
+}
+
+.breakdown-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.breakdown-table th, 
+.breakdown-table td {
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+    font-size: 0.9rem;
+}
+
+.breakdown-table th {
+    background-color: #f1f5f9;
+    color: var(--dark-text);
+    font-weight: 600;
+}
+
+.breakdown-table th.highlight-header {
+    background-color: #e0e7ff;
+    color: #3730a3;
+}
+
+.breakdown-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+.breakdown-table .total-footer-row td {
+    background-color: #f1f5f9;
+    font-weight: 600;
+    border-top: 2px solid #cbd5e1;
+    color: var(--dark-text);
+}
+
+

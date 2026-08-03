@@ -83,6 +83,7 @@ async function initApp() {
         console.log('API Response:', result);
         if (result && result.status === 'success') {
             rawData = result.data;
+            window.buybackRawData = result.buyback || [];
             // เซฟการตั้งค่าไว้
             if (result.settings && result.settings.length > 0) {
                 window.kpiSettings = result.settings;
@@ -109,6 +110,9 @@ function processLoadedData() {
 
     // 2. Populate Dropdown พนักงาน
     populateEmployees();
+
+    // 2.5 ผูก Event ปุ่มเลือกแบรนด์
+    initBrandFilterEvents();
 
     // 3. เริ่มคำนวณข้อมูลทั้งหมดครั้งแรก
     filteredData = [...allData];
@@ -217,6 +221,11 @@ function handleReset() {
     els.startDate.value = '';
     els.endDate.value = '';
     currentCategoryFilter = null;
+    selectedBrandFilter = 'all';
+    document.querySelectorAll('.btn-brand').forEach(btn => {
+        if (btn.getAttribute('data-brand') === 'all') btn.classList.add('active');
+        else btn.classList.remove('active');
+    });
     filteredData = [...allData];
     updateDashboard();
 }
@@ -378,6 +387,9 @@ function updateDashboard() {
 
     // อัปเดตการจัดอันดับพนักงานแยกสาขา
     updateRankings();
+
+    // อัปเดตตารางสรุปยอดตามรูปแบบการขายและรายเดือน
+    renderMonthlyBreakdown();
 }
 
 function updateSummaryDOM(summaryData, total) {
@@ -736,4 +748,276 @@ function updateRankings() {
 
         rankingContainer.appendChild(card);
     });
+}
+
+// ==========================================
+// MONTHLY SALES & BUYBACK BREAKDOWN LOGIC
+// ==========================================
+let selectedBrandFilter = 'all';
+window.buybackRawData = [];
+
+function initBrandFilterEvents() {
+    const brandBtns = document.querySelectorAll('.btn-brand');
+    brandBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            brandBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedBrandFilter = btn.getAttribute('data-brand');
+            renderMonthlyBreakdown();
+        });
+    });
+}
+
+function renderMonthlyBreakdown() {
+    const thead = document.getElementById('monthly-breakdown-thead');
+    const tbody = document.getElementById('monthly-breakdown-tbody');
+    const tfoot = document.getElementById('monthly-breakdown-tfoot');
+    
+    if (!thead || !tbody) return;
+
+    const emp = els.employeeSelect.value;
+    const startStr = els.startDate.value;
+    const endStr = els.endDate.value;
+
+    let startTimestamp = 0;
+    if (startStr) {
+        const d = new Date(startStr);
+        d.setHours(0, 0, 0, 0);
+        startTimestamp = d.getTime();
+    }
+    
+    let endTimestamp = Infinity;
+    if (endStr) {
+        const d = new Date(endStr);
+        d.setHours(23, 59, 59, 999);
+        endTimestamp = d.getTime();
+    }
+
+    // Helper check Brand
+    // Rule: "โดยจะอ้างอิงจากคอลั้ม C ถ้าเท่ากับ Apple คือ Apple ถ้าไม่ใช่ คือ Android ทั้งหมด"
+    const isMatchBrand = (brandOrCat) => {
+        const str = (brandOrCat || "").toString().trim().toLowerCase();
+        const isApple = (str === "apple");
+        if (selectedBrandFilter === 'apple') return isApple;
+        if (selectedBrandFilter === 'android') return !isApple;
+        return true;
+    };
+
+    // Filter Sales Data (Exclude ACC per user feedback: "Acc ไม่ต้อง")
+    const filteredSales = allData.filter(item => {
+        if (item.sheetName === "ACC") return false;
+        if (emp !== 'all' && item.employee !== emp) return false;
+        
+        let itemTime = new Date(item.date).getTime();
+        if (!isNaN(itemTime)) {
+            if (itemTime < startTimestamp || itemTime > endTimestamp) return false;
+        }
+        
+        // Col C check (category or brand)
+        const brandOrCat = item.category || item.brand;
+        if (!isMatchBrand(brandOrCat)) return false;
+
+        return true;
+    });
+
+    // Filter Buyback Data
+    const filteredBuyback = (window.buybackRawData || []).filter(item => {
+        if (emp !== 'all' && item.employee !== emp) return false;
+        
+        let itemTime = new Date(item.date).getTime();
+        if (!isNaN(itemTime)) {
+            if (itemTime < startTimestamp || itemTime > endTimestamp) return false;
+        }
+
+        const brandOrCat = item.brand || item.category;
+        if (!isMatchBrand(brandOrCat)) return false;
+
+        return true;
+    });
+
+    // Collect all unique YYYY-MM
+    const monthSet = new Set();
+    const getMonthKey = (dateVal) => {
+        const d = new Date(dateVal);
+        if (isNaN(d.getTime())) return null;
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        return `${yyyy}-${mm}`;
+    };
+
+    filteredSales.forEach(item => {
+        const m = getMonthKey(item.date);
+        if (m) monthSet.add(m);
+    });
+
+    filteredBuyback.forEach(item => {
+        const m = getMonthKey(item.date);
+        if (m) monthSet.add(m);
+    });
+
+    const months = Array.from(monthSet).sort();
+
+    const monthNamesThai = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+    const formatMonthHeader = (yyyyMM) => {
+        const [y, m] = yyyyMM.split('-');
+        const monthIdx = parseInt(m, 10) - 1;
+        return `${monthNamesThai[monthIdx]} ${y}`;
+    };
+
+    // 7 Categories
+    const categories = [
+        "1. ขายส่ง",
+        "2. ขายสด มือ1",
+        "3. ขายสด มือ2",
+        "4. ขายสินเชื่อ Kfinance",
+        "5. ขายสินเชื่อ IT4",
+        "6. ทำสินเชื่อ iPhone แลกเงิน",
+        "7. การรับซื้อเครื่อง"
+    ];
+
+    // Data Matrix: matrix[catIdx][mKey] = { count: 0, amount: 0 }
+    const matrix = Array.from({ length: 7 }, () => ({}));
+    categories.forEach((_, catIdx) => {
+        months.forEach(m => {
+            matrix[catIdx][m] = { count: 0, amount: 0 };
+        });
+    });
+
+    // Helper classify sales item
+    const getSalesCatIndex = (item) => {
+        const st = (item.saleType || "").trim();
+        const stLower = st.toLowerCase();
+        const cat = (item.category || "").trim();
+        const sheet = (item.sheetName || "").trim();
+
+        if (st.includes("ส่งร้านพาร์ทเนอร์")) return 0;
+        if (st.includes("แลกเงิน") || cat.includes("แลกเงิน")) return 5;
+        if (stLower.includes("kfinance") || stLower.includes("k-finance")) return 3;
+        if (stLower.includes("it4")) return 4;
+        if (st.includes("ขายสด")) {
+            if (sheet === "Phone2" || cat.includes("มือ2") || cat.includes("มือ 2")) {
+                return 2;
+            } else {
+                return 1;
+            }
+        }
+        if (sheet === "Phone2" || cat.includes("มือ2") || cat.includes("มือ 2")) return 2;
+        return 1;
+    };
+
+    // Populate Sales Data
+    filteredSales.forEach(item => {
+        const m = getMonthKey(item.date);
+        if (!m || !months.includes(m)) return;
+
+        const catIdx = getSalesCatIndex(item);
+        const amt = (item.financeAmount && item.financeAmount > 0) ? Number(item.financeAmount) : (Number(item.price) || 0);
+
+        if (matrix[catIdx][m]) {
+            matrix[catIdx][m].count += 1;
+            matrix[catIdx][m].amount += amt;
+        }
+    });
+
+    // Populate Buyback Data
+    filteredBuyback.forEach(item => {
+        const m = getMonthKey(item.date);
+        if (!m || !months.includes(m)) return;
+
+        const catIdx = 6; // 7. การรับซื้อเครื่อง
+        const amt = Number(item.price) || 0;
+
+        if (matrix[catIdx][m]) {
+            matrix[catIdx][m].count += 1;
+            matrix[catIdx][m].amount += amt;
+        }
+    });
+
+    // Handle Empty State
+    if (months.length === 0) {
+        thead.innerHTML = `
+            <tr>
+                <th class="text-left">รูปแบบการขาย</th>
+                <th class="text-center">รวมทั้งหมด</th>
+            </tr>`;
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="2" class="text-center empty-state">ไม่มีข้อมูลในช่วงเวลาหรือแบรนด์ที่คุณเลือก</td>
+            </tr>`;
+        if (tfoot) tfoot.innerHTML = '';
+        return;
+    }
+
+    // Render Table Header
+    let headHTML1 = `<tr><th rowspan="2" class="text-left" style="vertical-align: middle; min-width: 180px;">รูปแบบการขาย</th>`;
+    months.forEach(m => {
+        headHTML1 += `<th colspan="2" class="text-center" style="min-width: 160px;">${formatMonthHeader(m)}</th>`;
+    });
+    headHTML1 += `<th colspan="2" class="text-center highlight-header" style="min-width: 170px;">รวมทั้งหมด</th></tr>`;
+
+    let headHTML2 = `<tr>`;
+    months.forEach(() => {
+        headHTML2 += `<th class="text-center" style="width: 70px;">จำนวน</th><th class="text-right" style="width: 100px;">จำนวนเงิน</th>`;
+    });
+    headHTML2 += `<th class="text-center highlight-header" style="width: 70px;">จำนวน</th><th class="text-right highlight-header" style="width: 110px;">จำนวนเงิน</th></tr>`;
+
+    thead.innerHTML = headHTML1 + headHTML2;
+
+    // Render Table Body
+    let bodyHTML = '';
+    const monthTotals = months.map(() => ({ count: 0, amount: 0 }));
+    let grandTotalCount = 0;
+    let grandTotalAmount = 0;
+
+    const fNum = (val) => (Number(val) || 0).toLocaleString('th-TH');
+    const fMoney = (val) => "฿" + (Number(val) || 0).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+    categories.forEach((catName, catIdx) => {
+        let rowCount = 0;
+        let rowAmount = 0;
+        let rowColsHTML = '';
+
+        months.forEach((m, mIdx) => {
+            const cell = matrix[catIdx][m] || { count: 0, amount: 0 };
+            rowCount += cell.count;
+            rowAmount += cell.amount;
+
+            monthTotals[mIdx].count += cell.count;
+            monthTotals[mIdx].amount += cell.amount;
+
+            rowColsHTML += `<td class="text-center">${cell.count > 0 ? fNum(cell.count) : '-'}</td>`;
+            rowColsHTML += `<td class="text-right">${cell.amount > 0 ? fMoney(cell.amount) : '-'}</td>`;
+        });
+
+        grandTotalCount += rowCount;
+        grandTotalAmount += rowAmount;
+
+        bodyHTML += `
+            <tr>
+                <td><strong>${catName}</strong></td>
+                ${rowColsHTML}
+                <td class="text-center highlight-cell"><strong>${rowCount > 0 ? fNum(rowCount) : '-'}</strong></td>
+                <td class="text-right highlight-cell"><strong>${rowAmount > 0 ? fMoney(rowAmount) : '-'}</strong></td>
+            </tr>`;
+    });
+
+    tbody.innerHTML = bodyHTML;
+
+    // Render Table Footer
+    let footColsHTML = '';
+    months.forEach((_, mIdx) => {
+        const mt = monthTotals[mIdx];
+        footColsHTML += `<td class="text-center"><strong>${fNum(mt.count)}</strong></td>`;
+        footColsHTML += `<td class="text-right"><strong>${fMoney(mt.amount)}</strong></td>`;
+    });
+
+    if (tfoot) {
+        tfoot.innerHTML = `
+            <tr class="total-footer-row">
+                <td><strong>รวมสุทธิ</strong></td>
+                ${footColsHTML}
+                <td class="text-center"><strong>${fNum(grandTotalCount)}</strong></td>
+                <td class="text-right"><strong>${fMoney(grandTotalAmount)}</strong></td>
+            </tr>`;
+    }
 }

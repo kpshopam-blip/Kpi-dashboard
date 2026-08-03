@@ -121,6 +121,32 @@
             <div id="ranking-container" class="ranking-grid">
                 <div class="text-center empty-state" style="width: 100%;">กำลังคำนวณการจัดอันดับ...</div>
             </div>
+        <!-- Monthly Sales & Buyback Breakdown Section -->
+        <section class="monthly-breakdown-section panel">
+            <div class="table-header-row" style="flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between;">
+                <h2><i class="fa-solid fa-calendar-week"></i> สรุปยอดขายตามรูปแบบการขายและรายเดือน</h2>
+                <div class="brand-filter-group">
+                    <span class="filter-label"><i class="fa-solid fa-filter"></i> เลือกแบรนด์:</span>
+                    <button class="btn-brand active" data-brand="all">ทั้งหมด</button>
+                    <button class="btn-brand" data-brand="apple"><i class="fa-brands fa-apple"></i> เฉพาะ Apple</button>
+                    <button class="btn-brand" data-brand="android"><i class="fa-brands fa-android"></i> เฉพาะ Android</button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table id="monthly-breakdown-table" class="breakdown-table">
+                    <thead id="monthly-breakdown-thead">
+                        <!-- Dynamic Month Headers -->
+                    </thead>
+                    <tbody id="monthly-breakdown-tbody">
+                        <tr>
+                            <td colspan="10" class="text-center empty-state">กำลังประมวลผลข้อมูล...</td>
+                        </tr>
+                    </tbody>
+                    <tfoot id="monthly-breakdown-tfoot">
+                        <!-- Footer Totals -->
+                    </tfoot>
+                </table>
+            </div>
         </section>
 
         <!-- Data Table Section -->
