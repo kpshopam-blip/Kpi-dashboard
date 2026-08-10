@@ -594,8 +594,9 @@ tbody tr:hover {
 }
 
 /* Frozen / Sticky First Column for Breakdown Table */
-.breakdown-table th:first-child,
-.breakdown-table td:first-child {
+.breakdown-table thead tr:first-child th:first-child,
+.breakdown-table tbody tr td:first-child,
+.breakdown-table tfoot tr td:first-child {
     position: sticky;
     left: 0;
     z-index: 10;
@@ -603,7 +604,7 @@ tbody tr:hover {
     box-shadow: 2px 0 5px -2px rgba(0, 0, 0, 0.15);
 }
 
-.breakdown-table thead th:first-child {
+.breakdown-table thead tr:first-child th:first-child {
     background-color: #f1f5f9;
     z-index: 15;
 }
@@ -623,6 +624,7 @@ tbody tr:hover {
     position: static;
     box-shadow: none;
 }
+
 
 
 
