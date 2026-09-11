@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KPI Dashboard ยอดขายพนักงาน</title>
+    <title>KPI Dashboard ยอดขายและงานซ่อม KP Shop</title>
     <link rel="stylesheet" href="style.css">
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -15,171 +15,381 @@
         <!-- Header -->
         <header class="dashboard-header">
             <div class="header-title">
-                <i class="fa-solid fa-chart-line"></i>
-                <h1>ระบบติดตาม KPI ยอดขาย</h1>
+                <i class="fa-solid fa-chart-pie" id="header-main-icon"></i>
+                <h1 id="header-main-title">ระบบติดตาม KPI & สรุปงานซ่อม KP Shop</h1>
             </div>
             <div class="header-status">
                 <span id="loading-status" class="status-badge loading"><i class="fa-solid fa-spinner fa-spin"></i> กำลังโหลดข้อมูล...</span>
             </div>
         </header>
 
-        <!-- Filters Section -->
-        <section class="filters-section panel">
-            <div class="filter-group">
-                <label for="employee-select"><i class="fa-solid fa-user"></i> พนักงาน:</label>
-                <select id="employee-select">
-                    <option value="all">-- พนักงานทั้งหมด --</option>
-                    <!-- Options will be populated by JS -->
-                </select>
-            </div>
-            <div class="filter-group">
-                <label for="start-date"><i class="fa-regular fa-calendar-days"></i> จากวันที่:</label>
-                <input type="date" id="start-date">
-            </div>
-            <div class="filter-group">
-                <label for="end-date">- ถึงวันที่:</label>
-                <input type="date" id="end-date">
-            </div>
-            <button id="btn-filter" class="btn-primary"><i class="fa-solid fa-magnifying-glass"></i> ค้นหา</button>
-            <button id="btn-reset" class="btn-secondary"><i class="fa-solid fa-rotate-right"></i> ล้างค่า</button>
-        </section>
+        <!-- Main Navigation Tabs -->
+        <nav class="main-tabs-nav">
+            <button id="tab-btn-sales" class="main-tab-btn active" onclick="switchView('sales')">
+                <i class="fa-solid fa-chart-line"></i>
+                <span>KPI ยอดขายพนักงาน</span>
+            </button>
+            <button id="tab-btn-repair" class="main-tab-btn" onclick="switchView('repair')">
+                <i class="fa-solid fa-screwdriver-wrench"></i>
+                <span>ข้อมูลงานซ่อมช่าง</span>
+            </button>
+        </nav>
 
-        <!-- Main KPI Section -->
-        <section class="kpi-overview-section panel highlight-panel">
-            <h2><i class="fa-solid fa-trophy"></i> ภาพรวม KPI <span id="kpi-stars" style="float: right;"></span></h2>
-            <div class="kpi-progress-container">
-                <div class="kpi-meta">
-                    <span class="kpi-label">ความคืบหน้า KPI: <span id="kpi-percentage-text">0.00%</span></span>
-                    <span class="kpi-amount">ยอดรวม KPI: <span id="kpi-total-amount">฿0</span> / <span id="kpi-target-amount">฿200,000</span></span>
+        <!-- ========================================== -->
+        <!-- VIEW 1: SALES KPI (หน้าเดิม) -->
+        <!-- ========================================== -->
+        <div id="sales-view-container" class="view-panel active">
+            <!-- Filters Section -->
+            <section class="filters-section panel">
+                <div class="filter-group">
+                    <label for="employee-select"><i class="fa-solid fa-user"></i> พนักงาน:</label>
+                    <select id="employee-select">
+                        <option value="all">-- พนักงานทั้งหมด --</option>
+                        <!-- Options will be populated by JS -->
+                    </select>
                 </div>
-                <div class="progress-bar-bg">
-                    <div id="kpi-progress-bar" class="progress-bar-fill" style="width: 0%"></div>
+                <div class="filter-group">
+                    <label for="start-date"><i class="fa-regular fa-calendar-days"></i> จากวันที่:</label>
+                    <input type="date" id="start-date">
                 </div>
-            </div>
-        </section>
+                <div class="filter-group">
+                    <label for="end-date">- ถึงวันที่:</label>
+                    <input type="date" id="end-date">
+                </div>
+                <button id="btn-filter" class="btn-primary"><i class="fa-solid fa-magnifying-glass"></i> ค้นหา</button>
+                <button id="btn-reset" class="btn-secondary"><i class="fa-solid fa-rotate-right"></i> ล้างค่า</button>
+            </section>
 
-        <!-- Summary Cards Layout -->
-        <div class="summary-grid">
-            <!-- Card 1: ACC -->
-            <div class="summary-card panel card-acc" onclick="handleFilter('ACC')" style="cursor: pointer;" title="คลิกเพื่อดูเฉพาะกลุ่ม ACC">
-                <div class="card-header">
-                    <i class="fa-solid fa-headphones"></i>
-                    <h3>กลุ่ม ACC</h3>
-                </div>
-                <div class="card-body">
-                    <div id="acc-summary-container">
-                        <!-- จะถูกสร้างอัตโนมัติจาก script.js ตามการตั้งค่า -->
+            <!-- Main KPI Section -->
+            <section class="kpi-overview-section panel highlight-panel">
+                <h2><i class="fa-solid fa-trophy"></i> ภาพรวม KPI <span id="kpi-stars" style="float: right;"></span></h2>
+                <div class="kpi-progress-container">
+                    <div class="kpi-meta">
+                        <span class="kpi-label">ความคืบหน้า KPI: <span id="kpi-percentage-text">0.00%</span></span>
+                        <span class="kpi-amount">ยอดรวม KPI: <span id="kpi-total-amount">฿0</span> / <span id="kpi-target-amount">฿200,000</span></span>
                     </div>
-                    <div class="stat-divider"></div>
-                    <div class="stat-row total-row">
-                        <span>รวม KPI กลุ่ม ACC</span>
-                        <span id="kpi-acc-total" class="stat-value highlight">฿0</span>
+                    <div class="progress-bar-bg">
+                        <div id="kpi-progress-bar" class="progress-bar-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Summary Cards Layout -->
+            <div class="summary-grid">
+                <!-- Card 1: ACC -->
+                <div class="summary-card panel card-acc" onclick="handleFilter('ACC')" style="cursor: pointer;" title="คลิกเพื่อดูเฉพาะกลุ่ม ACC">
+                    <div class="card-header">
+                        <i class="fa-solid fa-headphones"></i>
+                        <h3>กลุ่ม ACC</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="acc-summary-container">
+                            <!-- จะถูกสร้างอัตโนมัติจาก script.js ตามการตั้งค่า -->
+                        </div>
+                        <div class="stat-divider"></div>
+                        <div class="stat-row total-row">
+                            <span>รวม KPI กลุ่ม ACC</span>
+                            <span id="kpi-acc-total" class="stat-value highlight">฿0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Phone1 & Trade-in -->
+                <div class="summary-card panel card-phone1" onclick="handleFilter('Phone1')" style="cursor: pointer;" title="คลิกเพื่อดูเฉพาะ มือถือ 1/แลกเงิน">
+                    <div class="card-header">
+                        <i class="fa-solid fa-mobile-screen"></i>
+                        <h3>มือถือ 1 / แลกเงิน</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="phone1-summary-container">
+                            <!-- จะถูกสร้างอัตโนมัติจาก script.js ตามการตั้งค่า -->
+                        </div>
+                        <div class="stat-divider"></div>
+                        <div class="stat-row total-row">
+                            <span>รวม KPI มือถือ 1/แลกเงิน</span>
+                            <span id="kpi-phone1-total" class="stat-value highlight">฿0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Phone2 -->
+                <div class="summary-card panel card-phone2" onclick="handleFilter('Phone2')" style="cursor: pointer;" title="คลิกเพื่อดูเฉพาะ มือถือ 2">
+                    <div class="card-header">
+                        <i class="fa-solid fa-mobile-retro"></i>
+                        <h3>มือถือ 2</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="phone2-summary-container">
+                            <!-- จะถูกสร้างอัตโนมัติจาก script.js ตามการตั้งค่า -->
+                        </div>
+                        <div class="stat-divider"></div>
+                        <div class="stat-row total-row">
+                            <span>รวม KPI มือถือ 2</span>
+                            <span id="kpi-phone2-total" class="stat-value highlight">฿0</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Card 2: Phone1 & Trade-in -->
-            <div class="summary-card panel card-phone1" onclick="handleFilter('Phone1')" style="cursor: pointer;" title="คลิกเพื่อดูเฉพาะ มือถือ 1/แลกเงิน">
-                <div class="card-header">
-                    <i class="fa-solid fa-mobile-screen"></i>
-                    <h3>มือถือ 1 / แลกเงิน</h3>
+            <!-- Ranking Section -->
+            <section class="ranking-section panel">
+                <h2><i class="fa-solid fa-ranking-star"></i> อันดับยอดขายพนักงานแยกตามสาขา</h2>
+                <div id="ranking-container" class="ranking-grid">
+                    <div class="text-center empty-state" style="width: 100%;">กำลังคำนวณการจัดอันดับ...</div>
                 </div>
-                <div class="card-body">
-                    <div id="phone1-summary-container">
-                        <!-- จะถูกสร้างอัตโนมัติจาก script.js ตามการตั้งค่า -->
-                    </div>
-                    <div class="stat-divider"></div>
-                    <div class="stat-row total-row">
-                        <span>รวม KPI มือถือ 1/แลกเงิน</span>
-                        <span id="kpi-phone1-total" class="stat-value highlight">฿0</span>
-                    </div>
-                </div>
-            </div>
+            </section>
 
-            <!-- Card 3: Phone2 -->
-            <div class="summary-card panel card-phone2" onclick="handleFilter('Phone2')" style="cursor: pointer;" title="คลิกเพื่อดูเฉพาะ มือถือ 2">
-                <div class="card-header">
-                    <i class="fa-solid fa-mobile-retro"></i>
-                    <h3>มือถือ 2</h3>
-                </div>
-                <div class="card-body">
-                    <div id="phone2-summary-container">
-                        <!-- จะถูกสร้างอัตโนมัติจาก script.js ตามการตั้งค่า -->
-                    </div>
-                    <div class="stat-divider"></div>
-                    <div class="stat-row total-row">
-                        <span>รวม KPI มือถือ 2</span>
-                        <span id="kpi-phone2-total" class="stat-value highlight">฿0</span>
+            <!-- Monthly Sales & Buyback Breakdown Section -->
+            <section class="monthly-breakdown-section panel">
+                <div class="table-header-row" style="flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between;">
+                    <h2><i class="fa-solid fa-calendar-week"></i> สรุปยอดขายตามรูปแบบการขายและรายเดือน</h2>
+                    <div class="brand-filter-group">
+                        <span class="filter-label"><i class="fa-solid fa-filter"></i> เลือกแบรนด์:</span>
+                        <button class="btn-brand active" data-brand="all">ทั้งหมด</button>
+                        <button class="btn-brand" data-brand="apple"><i class="fa-brands fa-apple"></i> เฉพาะ Apple</button>
+                        <button class="btn-brand" data-brand="android"><i class="fa-brands fa-android"></i> เฉพาะ Android</button>
                     </div>
                 </div>
-            </div>
+                <div class="table-responsive">
+                    <table id="monthly-breakdown-table" class="breakdown-table">
+                        <thead id="monthly-breakdown-thead">
+                            <!-- Dynamic Month Headers -->
+                        </thead>
+                        <tbody id="monthly-breakdown-tbody">
+                            <tr>
+                                <td colspan="10" class="text-center empty-state">กำลังประมวลผลข้อมูล...</td>
+                            </tr>
+                        </tbody>
+                        <tfoot id="monthly-breakdown-tfoot">
+                            <!-- Footer Totals -->
+                        </tfoot>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Data Table Section -->
+            <section class="data-table-section panel">
+                <div class="table-header-row">
+                    <h2><i class="fa-solid fa-list"></i> รายการขายที่นำมาคำนวณ KPI (<span id="record-count">0</span> รายการ)</h2>
+                </div>
+                <div class="table-responsive">
+                    <table id="sales-table">
+                        <thead>
+                            <tr>
+                                <th>วันที่</th>
+                                <th>พนักงาน</th>
+                                <th>แหล่งข้อมูล</th>
+                                <th>ยี่ห้อ - รุ่น</th>
+                                <th>รูปแบบการขาย</th>
+                                <th class="text-right">ราคาขาย</th>
+                                <th class="text-right" style="color:#7f8c8d;">เงินดาวน์</th>
+                                <th class="text-right">ยอดจัด</th>
+                                <th class="text-center">%</th>
+                                <th class="text-right">KPI ที่ได้</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sales-table-body">
+                            <tr>
+                                <td colspan="10" class="text-center empty-state">กำลังดึงข้อมูล หรือไม่มีข้อมูลในเงื่อนไขที่คุณเลือก</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
         </div>
 
-        <!-- Ranking Section -->
-        <section class="ranking-section panel">
-            <h2><i class="fa-solid fa-ranking-star"></i> อันดับยอดขายพนักงานแยกตามสาขา</h2>
-            <div id="ranking-container" class="ranking-grid">
-                <div class="text-center empty-state" style="width: 100%;">กำลังคำนวณการจัดอันดับ...</div>
-            </div>
-        <!-- Monthly Sales & Buyback Breakdown Section -->
-        <section class="monthly-breakdown-section panel">
-            <div class="table-header-row" style="flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between;">
-                <h2><i class="fa-solid fa-calendar-week"></i> สรุปยอดขายตามรูปแบบการขายและรายเดือน</h2>
-                <div class="brand-filter-group">
-                    <span class="filter-label"><i class="fa-solid fa-filter"></i> เลือกแบรนด์:</span>
-                    <button class="btn-brand active" data-brand="all">ทั้งหมด</button>
-                    <button class="btn-brand" data-brand="apple"><i class="fa-brands fa-apple"></i> เฉพาะ Apple</button>
-                    <button class="btn-brand" data-brand="android"><i class="fa-brands fa-android"></i> เฉพาะ Android</button>
+        <!-- ========================================== -->
+        <!-- VIEW 2: REPAIR DASHBOARD (หน้างานซ่อมช่าง - ใหม่) -->
+        <!-- ========================================== -->
+        <div id="repair-view-container" class="view-panel" style="display: none;">
+            <!-- Repair Filters Section -->
+            <section class="filters-section panel">
+                <div class="filter-group">
+                    <label for="repair-tech-select"><i class="fa-solid fa-user-gear"></i> ช่างผู้รับผิดชอบ:</label>
+                    <select id="repair-tech-select">
+                        <option value="all">-- ช่างทั้งหมด --</option>
+                        <!-- Dynamic options -->
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="repair-customer-type"><i class="fa-solid fa-users"></i> ประเภทลูกค้า:</label>
+                    <select id="repair-customer-type">
+                        <option value="all">-- ทุกประเภทลูกค้า --</option>
+                        <option value="ลูกค้าหน้าร้าน">ลูกค้าหน้าร้าน</option>
+                        <option value="ลูกค้าออนไลน์">ลูกค้าออนไลน์</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="repair-status-select"><i class="fa-solid fa-circle-check"></i> สถานะงาน:</label>
+                    <select id="repair-status-select">
+                        <option value="ลูกค้ารับเครื่องแล้ว">เฉพาะงานที่จบ (ลูกค้ารับเครื่องแล้ว)</option>
+                        <option value="all">-- ทุกสถานะงาน --</option>
+                        <option value="ไม่ซ่อมคืนลูกค้า">ไม่ซ่อมคืนลูกค้า</option>
+                        <option value="รับเครื่องใหม่">รับเครื่องใหม่</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="repair-start-date"><i class="fa-regular fa-calendar-days"></i> จากวันที่:</label>
+                    <input type="date" id="repair-start-date">
+                </div>
+                <div class="filter-group">
+                    <label for="repair-end-date">- ถึงวันที่:</label>
+                    <input type="date" id="repair-end-date">
+                </div>
+                <button id="btn-repair-filter" class="btn-primary"><i class="fa-solid fa-magnifying-glass"></i> ค้นหา</button>
+                <button id="btn-repair-reset" class="btn-secondary"><i class="fa-solid fa-rotate-right"></i> ล้างค่า</button>
+            </section>
+
+            <!-- Repair Summary Cards -->
+            <div class="summary-grid repair-summary-grid">
+                <!-- Card 1: Total Completed Jobs -->
+                <div class="summary-card panel card-repair-total highlight-panel">
+                    <div class="card-header">
+                        <i class="fa-solid fa-circle-check" style="color: #27ae60;"></i>
+                        <h3>รวมงานที่จบทั้งหมด</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="stat-row">
+                            <span>จำนวนงานที่จบ</span>
+                            <span id="repair-sum-total-count" class="stat-value count-badge">0 งาน</span>
+                        </div>
+                        <div class="stat-divider"></div>
+                        <div class="stat-row total-row">
+                            <span>ยอดเงินจริงรวม</span>
+                            <span id="repair-sum-total-amount" class="stat-value highlight" style="color: #27ae60;">฿0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Storefront Customers -->
+                <div class="summary-card panel card-repair-store">
+                    <div class="card-header">
+                        <i class="fa-solid fa-store" style="color: #2980b9;"></i>
+                        <h3>ลูกค้าหน้าร้าน</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="stat-row">
+                            <span>จำนวนงาน</span>
+                            <span id="repair-sum-store-count" class="stat-value count-badge">0 งาน</span>
+                        </div>
+                        <div class="stat-divider"></div>
+                        <div class="stat-row total-row">
+                            <span>ยอดเงินรวม</span>
+                            <span id="repair-sum-store-amount" class="stat-value highlight" style="color: #2980b9;">฿0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Online Customers -->
+                <div class="summary-card panel card-repair-online">
+                    <div class="card-header">
+                        <i class="fa-solid fa-globe" style="color: #8e44ad;"></i>
+                        <h3>ลูกค้าออนไลน์</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="stat-row">
+                            <span>จำนวนงาน</span>
+                            <span id="repair-sum-online-count" class="stat-value count-badge">0 งาน</span>
+                        </div>
+                        <div class="stat-divider"></div>
+                        <div class="stat-row total-row">
+                            <span>ยอดเงินรวม</span>
+                            <span id="repair-sum-online-amount" class="stat-value highlight" style="color: #8e44ad;">฿0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 4: Ticket Average -->
+                <div class="summary-card panel card-repair-avg">
+                    <div class="card-header">
+                        <i class="fa-solid fa-calculator" style="color: #d35400;"></i>
+                        <h3>สถิติและค่าเฉลี่ย</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="stat-row">
+                            <span>สัดส่วน หน้าร้าน / ออนไลน์</span>
+                            <span id="repair-sum-ratio" class="stat-value count-badge">0% / 0%</span>
+                        </div>
+                        <div class="stat-divider"></div>
+                        <div class="stat-row total-row">
+                            <span>เฉลี่ยต่องาน</span>
+                            <span id="repair-sum-avg-amount" class="stat-value highlight" style="color: #d35400;">฿0</span>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="table-responsive">
-                <table id="monthly-breakdown-table" class="breakdown-table">
-                    <thead id="monthly-breakdown-thead">
-                        <!-- Dynamic Month Headers -->
-                    </thead>
-                    <tbody id="monthly-breakdown-tbody">
-                        <tr>
-                            <td colspan="10" class="text-center empty-state">กำลังประมวลผลข้อมูล...</td>
-                        </tr>
-                    </tbody>
-                    <tfoot id="monthly-breakdown-tfoot">
-                        <!-- Footer Totals -->
-                    </tfoot>
-                </table>
-            </div>
-        </section>
 
-        <!-- Data Table Section -->
-        <section class="data-table-section panel">
-            <div class="table-header-row">
-                <h2><i class="fa-solid fa-list"></i> รายการขายที่นำมาคำนวณ KPI (<span id="record-count">0</span> รายการ)</h2>
-                <!-- ไม่นำรายการที่จ่ายด้วยบัตรเครดิตมาแสดง/คำนวณ -->
-            </div>
-            <div class="table-responsive">
-                <table id="sales-table">
-                    <thead>
-                        <tr>
-                            <th>วันที่</th>
-                            <th>พนักงาน</th>
-                            <th>แหล่งข้อมูล</th>
-                            <th>ยี่ห้อ - รุ่น</th>
-                            <th>รูปแบบการขาย</th>
-                            <th class="text-right">ราคาขาย</th>
-                            <th class="text-right" style="color:#7f8c8d;">เงินดาวน์</th>
-                            <th class="text-right">ยอดจัด</th>
-                            <th class="text-center">%</th>
-                            <th class="text-right">KPI ที่ได้</th>
-                        </tr>
-                    </thead>
-                    <tbody id="sales-table-body">
-                        <!-- Data will be populated here -->
-                        <tr>
-                            <td colspan="9" class="text-center empty-state">กำลังดึงข้อมูล หรือไม่มีข้อมูลในเงื่อนไขที่คุณเลือก</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+            <!-- Technician Performance Section -->
+            <section class="ranking-section panel">
+                <h2><i class="fa-solid fa-award"></i> สรุปผลงานการจบงานของช่างแต่ละคน</h2>
+                <div id="technician-ranking-container" class="ranking-grid">
+                    <div class="text-center empty-state" style="width: 100%;">กำลังประมวลผลข้อมูลช่าง...</div>
+                </div>
+            </section>
+
+            <!-- Repair Monthly Breakdown Section (ตารางเทียบรายเดือน) -->
+            <section class="monthly-breakdown-section panel">
+                <div class="table-header-row" style="flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between;">
+                    <h2><i class="fa-solid fa-calendar-days"></i> สรุปงานซ่อมตามประเภทลูกค้าและรายเดือน</h2>
+                    <div class="brand-filter-group">
+                        <span class="filter-label"><i class="fa-solid fa-filter"></i> เลือกแบรนด์:</span>
+                        <button class="btn-repair-brand active" data-brand="all">ทั้งหมด</button>
+                        <button class="btn-repair-brand" data-brand="apple"><i class="fa-brands fa-apple"></i> เฉพาะ Apple</button>
+                        <button class="btn-repair-brand" data-brand="android"><i class="fa-brands fa-android"></i> เฉพาะ Android</button>
+                        <button class="btn-repair-brand" data-brand="other">อื่นๆ</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table id="repair-monthly-breakdown-table" class="breakdown-table">
+                        <thead id="repair-monthly-breakdown-thead">
+                            <!-- Dynamic Month Headers -->
+                        </thead>
+                        <tbody id="repair-monthly-breakdown-tbody">
+                            <tr>
+                                <td colspan="10" class="text-center empty-state">กำลังประมวลผลข้อมูล...</td>
+                            </tr>
+                        </tbody>
+                        <tfoot id="repair-monthly-breakdown-tfoot">
+                            <!-- Footer Totals -->
+                        </tfoot>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Repair Detailed Data Table Section -->
+            <section class="data-table-section panel">
+                <div class="table-header-row" style="flex-wrap: wrap; gap: 15px; justify-content: space-between; align-items: center;">
+                    <h2><i class="fa-solid fa-list-check"></i> รายการงานซ่อม (<span id="repair-record-count">0</span> รายการ)</h2>
+                    <div class="table-search-box">
+                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                        <input type="text" id="repair-search-input" placeholder="ค้นหา รหัสงาน, ชื่อช่าง, รุ่น, อาการ...">
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table id="repair-table">
+                        <thead>
+                            <tr>
+                                <th style="min-width: 130px;">วันที่ / เวลา</th>
+                                <th style="min-width: 120px;">รหัสงาน (JobID)</th>
+                                <th style="min-width: 170px;">ช่างผู้รับผิดชอบ</th>
+                                <th style="min-width: 160px;">อุปกรณ์ / ยี่ห้อ - รุ่น</th>
+                                <th style="min-width: 180px;">อาการเสีย / งานซ่อม</th>
+                                <th class="text-center" style="min-width: 130px;">สถานะ</th>
+                                <th class="text-center" style="min-width: 120px;">ประเภทลูกค้า</th>
+                                <th class="text-right" style="min-width: 110px;">ราคาจบงานจริง</th>
+                                <th class="text-center" style="min-width: 110px;">สลิปใบเสร็จ</th>
+                                <th class="text-center" style="min-width: 120px;">หลักฐานนัดรับ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="repair-table-body">
+                            <tr>
+                                <td colspan="10" class="text-center empty-state">กำลังดึงข้อมูลงานซ่อม...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
     </div>
 
     <!-- Scripts -->

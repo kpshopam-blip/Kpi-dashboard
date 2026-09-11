@@ -13,6 +13,11 @@ let rawData = [];
 window.kpiSettings = [];
 // ตัวแปรเก็บข้อมูลพนักงานและเป้าหมาย
 window.usersData = [];
+// ตัวแปรเก็บข้อมูลงานซ่อม
+window.repairsRawData = [];
+let rawRepairs = [];
+let filteredRepairs = [];
+let selectedRepairBrand = 'all';
 // ตัวแปรหมวดหมู่ฟิลเตอร์ปัจจุบัน
 let currentCategoryFilter = null;
 
@@ -82,8 +87,9 @@ async function initApp() {
         const result = await response.json();
         console.log('API Response:', result);
         if (result && result.status === 'success') {
-            rawData = result.data;
+            rawData = result.data || [];
             window.buybackRawData = result.buyback || [];
+            window.repairsRawData = (result.repairs && result.repairs.length > 0) ? result.repairs : generateMockRepairData();
             // เซฟการตั้งค่าไว้
             if (result.settings && result.settings.length > 0) {
                 window.kpiSettings = result.settings;
@@ -119,11 +125,14 @@ function processLoadedData() {
     updateDashboard();
 
     // 4. แสดงสถานะว่าโหลดสำเร็จ
-    showSuccess(`โหลดข้อมูลสำเร็จ (${allData.length} รายการ)`);
+    showSuccess(`โหลดข้อมูลสำเร็จ (${allData.length} รายการขาย, ${(window.repairsRawData || []).length} รายการงานซ่อม)`);
 
     // 5. ผูก Event Listeners
     els.btnFilter.addEventListener('click', handleFilter);
     els.btnReset.addEventListener('click', handleReset);
+
+    // 6. เริ่มต้นระบบงานซ่อมช่าง
+    initRepairModule();
 }
 
 // ==========================================
@@ -1021,3 +1030,708 @@ function renderMonthlyBreakdown() {
             </tr>`;
     }
 }
+
+// ==========================================
+// REPAIR MODULE LOGIC (ระบบงานซ่อมช่าง)
+// ==========================================
+let repairEls = null;
+
+function getRepairEls() {
+    if (!repairEls) {
+        repairEls = {
+            techSelect: document.getElementById('repair-tech-select'),
+            customerType: document.getElementById('repair-customer-type'),
+            statusSelect: document.getElementById('repair-status-select'),
+            startDate: document.getElementById('repair-start-date'),
+            endDate: document.getElementById('repair-end-date'),
+            btnFilter: document.getElementById('btn-repair-filter'),
+            btnReset: document.getElementById('btn-repair-reset'),
+            sumTotalCount: document.getElementById('repair-sum-total-count'),
+            sumTotalAmount: document.getElementById('repair-sum-total-amount'),
+            sumStoreCount: document.getElementById('repair-sum-store-count'),
+            sumStoreAmount: document.getElementById('repair-sum-store-amount'),
+            sumOnlineCount: document.getElementById('repair-sum-online-count'),
+            sumOnlineAmount: document.getElementById('repair-sum-online-amount'),
+            sumRatio: document.getElementById('repair-sum-ratio'),
+            sumAvgAmount: document.getElementById('repair-sum-avg-amount'),
+            recordCount: document.getElementById('repair-record-count'),
+            searchInput: document.getElementById('repair-search-input'),
+            tableBody: document.getElementById('repair-table-body'),
+            monthlyThead: document.getElementById('repair-monthly-breakdown-thead'),
+            monthlyTbody: document.getElementById('repair-monthly-breakdown-tbody'),
+            monthlyTfoot: document.getElementById('repair-monthly-breakdown-tfoot'),
+            techRankingContainer: document.getElementById('technician-ranking-container')
+        };
+    }
+    return repairEls;
+}
+
+// ระบบสลับแท็บหน้าจอหลัก (Sales KPI vs Repairs)
+window.switchView = function(view) {
+    const salesContainer = document.getElementById('sales-view-container');
+    const repairContainer = document.getElementById('repair-view-container');
+    const tabSales = document.getElementById('tab-btn-sales');
+    const tabRepair = document.getElementById('tab-btn-repair');
+    const headerTitle = document.getElementById('header-main-title');
+    const headerIcon = document.getElementById('header-main-icon');
+
+    if (view === 'sales') {
+        if (salesContainer) salesContainer.style.display = 'block';
+        if (repairContainer) repairContainer.style.display = 'none';
+        if (tabSales) tabSales.classList.add('active');
+        if (tabRepair) tabRepair.classList.remove('active');
+        if (headerTitle) headerTitle.innerText = "ระบบติดตาม KPI ยอดขายพนักงาน";
+        if (headerIcon) headerIcon.className = "fa-solid fa-chart-line";
+    } else {
+        if (salesContainer) salesContainer.style.display = 'none';
+        if (repairContainer) repairContainer.style.display = 'block';
+        if (tabRepair) tabRepair.classList.add('active');
+        if (tabSales) tabSales.classList.remove('active');
+        if (headerTitle) headerTitle.innerText = "ระบบติดตามข้อมูลงานซ่อมช่าง";
+        if (headerIcon) headerIcon.className = "fa-solid fa-screwdriver-wrench";
+        updateRepairDashboard();
+    }
+};
+
+// เริ่มต้นโมดูลงานซ่อม
+function initRepairModule() {
+    rawRepairs = window.repairsRawData || [];
+    if (rawRepairs.length === 0) {
+        rawRepairs = generateMockRepairData();
+        window.repairsRawData = rawRepairs;
+    }
+
+    populateRepairTechnicians();
+    initRepairEvents();
+
+    filteredRepairs = [...rawRepairs];
+    // ค่าเริ่มต้นกรองเฉพาะงานที่จบ
+    const elements = getRepairEls();
+    if (elements.statusSelect) {
+        elements.statusSelect.value = "ลูกค้ารับเครื่องแล้ว";
+    }
+    handleRepairFilter();
+}
+
+// รายชื่อช่างใน Dropdown
+function populateRepairTechnicians() {
+    const elements = getRepairEls();
+    if (!elements.techSelect) return;
+
+    const techSet = new Set();
+    rawRepairs.forEach(r => {
+        if (r.technician && r.technician.trim()) {
+            techSet.add(r.technician.trim());
+        }
+    });
+
+    const sortedTechs = Array.from(techSet).sort();
+    elements.techSelect.innerHTML = '<option value="all">-- ช่างทั้งหมด --</option>';
+    sortedTechs.forEach(tech => {
+        const opt = document.createElement('option');
+        opt.value = opt.textContent = tech;
+        elements.techSelect.appendChild(opt);
+    });
+}
+
+// ผูก Event ให้กับปุ่มและอินพุตในหน้างงานซ่อม
+function initRepairEvents() {
+    const elements = getRepairEls();
+    if (elements.btnFilter) elements.btnFilter.addEventListener('click', handleRepairFilter);
+    if (elements.btnReset) elements.btnReset.addEventListener('click', handleRepairReset);
+    if (elements.searchInput) {
+        elements.searchInput.addEventListener('input', () => {
+            renderRepairTable();
+        });
+    }
+
+    // ปุ่มแบรนด์ในตารางเทียบรายเดือนของงานซ่อม
+    document.querySelectorAll('.btn-repair-brand').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.btn-repair-brand').forEach(b => b.classList.remove('active'));
+            const target = e.currentTarget;
+            target.classList.add('active');
+            selectedRepairBrand = target.getAttribute('data-brand') || 'all';
+            renderRepairMonthlyBreakdown();
+        });
+    });
+}
+
+// กรองข้อมูลงานซ่อม
+function handleRepairFilter() {
+    const elements = getRepairEls();
+    const selectedTech = elements.techSelect ? elements.techSelect.value : 'all';
+    const selectedCustType = elements.customerType ? elements.customerType.value : 'all';
+    const selectedStatus = elements.statusSelect ? elements.statusSelect.value : 'ลูกค้ารับเครื่องแล้ว';
+    const startStr = elements.startDate ? elements.startDate.value : '';
+    const endStr = elements.endDate ? elements.endDate.value : '';
+
+    let startTimestamp = 0;
+    if (startStr) {
+        const d = new Date(startStr);
+        d.setHours(0, 0, 0, 0);
+        startTimestamp = d.getTime();
+    }
+
+    let endTimestamp = Infinity;
+    if (endStr) {
+        const d = new Date(endStr);
+        d.setHours(23, 59, 59, 999);
+        endTimestamp = d.getTime();
+    }
+
+    filteredRepairs = rawRepairs.filter(item => {
+        // กรองช่าง
+        if (selectedTech !== 'all' && (item.technician || '').trim() !== selectedTech) return false;
+
+        // กรองประเภทลูกค้า
+        if (selectedCustType !== 'all' && (item.customerType || '').trim() !== selectedCustType) return false;
+
+        // กรองสถานะงาน
+        if (selectedStatus !== 'all') {
+            if ((item.status || '').trim() !== selectedStatus) return false;
+        }
+
+        // กรองวันที่
+        const dateObj = parseTimestampToDate(item.date);
+        if (dateObj) {
+            const time = dateObj.getTime();
+            if (time < startTimestamp || time > endTimestamp) return false;
+        }
+
+        return true;
+    });
+
+    updateRepairDashboard();
+}
+
+// รีเซ็ตตัวกรองงานซ่อม
+function handleRepairReset() {
+    const elements = getRepairEls();
+    if (elements.techSelect) elements.techSelect.value = 'all';
+    if (elements.customerType) elements.customerType.value = 'all';
+    if (elements.statusSelect) elements.statusSelect.value = 'ลูกค้ารับเครื่องแล้ว';
+    if (elements.startDate) elements.startDate.value = '';
+    if (elements.endDate) elements.endDate.value = '';
+    if (elements.searchInput) elements.searchInput.value = '';
+
+    selectedRepairBrand = 'all';
+    document.querySelectorAll('.btn-repair-brand').forEach(b => {
+        if (b.getAttribute('data-brand') === 'all') b.classList.add('active');
+        else b.classList.remove('active');
+    });
+
+    handleRepairFilter();
+}
+
+// อัปเดตการแสดงผลหน้างานซ่อม
+function updateRepairDashboard() {
+    const elements = getRepairEls();
+    const fMoney = (num) => "฿" + (Number(num) || 0).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    const fNum = (num) => (Number(num) || 0).toLocaleString('th-TH');
+
+    // คำนวณเฉพาะงานที่จบ (ลูกค้ารับเครื่องแล้ว) สำหรับการ์ดยอดรวม
+    // หากผู้ใช้เลือกสถานะอื่นในฟิลเตอร์ ให้คำนวณตามที่กรองมาได้
+    const isCompletedOnly = !elements.statusSelect || elements.statusSelect.value === 'ลูกค้ารับเครื่องแล้ว';
+    const targetRepairs = isCompletedOnly 
+        ? filteredRepairs.filter(r => (r.status || '').trim() === 'ลูกค้ารับเครื่องแล้ว')
+        : filteredRepairs;
+
+    let totalCompletedCount = 0;
+    let totalCompletedAmount = 0;
+
+    let storeCount = 0;
+    let storeAmount = 0;
+
+    let onlineCount = 0;
+    let onlineAmount = 0;
+
+    targetRepairs.forEach(r => {
+        const price = Number(r.actualPrice) || 0;
+        const custType = (r.customerType || '').trim();
+
+        totalCompletedCount += 1;
+        totalCompletedAmount += price;
+
+        if (custType.includes('หน้าร้าน')) {
+            storeCount += 1;
+            storeAmount += price;
+        } else if (custType.includes('ออนไลน์')) {
+            onlineCount += 1;
+            onlineAmount += price;
+        }
+    });
+
+    const avgAmount = totalCompletedCount > 0 ? (totalCompletedAmount / totalCompletedCount) : 0;
+    const storeRatio = totalCompletedCount > 0 ? ((storeCount / totalCompletedCount) * 100).toFixed(0) : 0;
+    const onlineRatio = totalCompletedCount > 0 ? ((onlineCount / totalCompletedCount) * 100).toFixed(0) : 0;
+
+    // อัปเดต Summary Cards
+    if (elements.sumTotalCount) elements.sumTotalCount.innerText = `${fNum(totalCompletedCount)} งาน`;
+    if (elements.sumTotalAmount) elements.sumTotalAmount.innerText = fMoney(totalCompletedAmount);
+
+    if (elements.sumStoreCount) elements.sumStoreCount.innerText = `${fNum(storeCount)} งาน`;
+    if (elements.sumStoreAmount) elements.sumStoreAmount.innerText = fMoney(storeAmount);
+
+    if (elements.sumOnlineCount) elements.sumOnlineCount.innerText = `${fNum(onlineCount)} งาน`;
+    if (elements.sumOnlineAmount) elements.sumOnlineAmount.innerText = fMoney(onlineAmount);
+
+    if (elements.sumRatio) elements.sumRatio.innerText = `หน้าร้าน ${storeRatio}% / ออนไลน์ ${onlineRatio}%`;
+    if (elements.sumAvgAmount) elements.sumAvgAmount.innerText = fMoney(avgAmount);
+
+    // อัปเดตการจัดอันดับและสรุปช่าง
+    renderTechnicianRankings(targetRepairs);
+
+    // อัปเดตตารางเทียบรายเดือน
+    renderRepairMonthlyBreakdown();
+
+    // อัปเดตตารางรายละเอียด
+    renderRepairTable();
+}
+
+// แสดงการ์ดผลงานช่างแต่ละคน
+function renderTechnicianRankings(completedRepairs) {
+    const elements = getRepairEls();
+    if (!elements.techRankingContainer) return;
+
+    const fMoney = (num) => "฿" + (Number(num) || 0).toLocaleString('th-TH');
+    const fNum = (num) => (Number(num) || 0).toLocaleString('th-TH');
+
+    // จัดกลุ่มช่าง
+    const techStats = {};
+    // ดึงช่างทั้งหมดที่มี
+    rawRepairs.forEach(r => {
+        const t = (r.technician || '').trim();
+        if (t && !techStats[t]) {
+            techStats[t] = { name: t, totalCount: 0, totalAmount: 0, storeCount: 0, storeAmount: 0, onlineCount: 0, onlineAmount: 0 };
+        }
+    });
+
+    // รวมยอดจากงานที่เสร็จตามช่วงเวลาที่กรอง
+    completedRepairs.forEach(r => {
+        const t = (r.technician || '').trim() || 'ไม่ระบุช่าง';
+        if (!techStats[t]) {
+            techStats[t] = { name: t, totalCount: 0, totalAmount: 0, storeCount: 0, storeAmount: 0, onlineCount: 0, onlineAmount: 0 };
+        }
+        const price = Number(r.actualPrice) || 0;
+        const cType = (r.customerType || '').trim();
+
+        techStats[t].totalCount += 1;
+        techStats[t].totalAmount += price;
+
+        if (cType.includes('หน้าร้าน')) {
+            techStats[t].storeCount += 1;
+            techStats[t].storeAmount += price;
+        } else if (cType.includes('ออนไลน์')) {
+            techStats[t].onlineCount += 1;
+            techStats[t].onlineAmount += price;
+        }
+    });
+
+    const techList = Object.values(techStats).sort((a, b) => b.totalAmount - a.totalAmount);
+    const selectedTech = elements.techSelect ? elements.techSelect.value : 'all';
+
+    if (techList.length === 0) {
+        elements.techRankingContainer.innerHTML = '<div class="text-center empty-state" style="width: 100%;">ไม่มีข้อมูลช่าง</div>';
+        return;
+    }
+
+    // หายอดสูงสุดเพื่อทำ progress bar
+    const maxAmount = Math.max(...techList.map(t => t.totalAmount), 1);
+
+    elements.techRankingContainer.innerHTML = '';
+    const card = document.createElement('div');
+    card.className = 'ranking-card';
+    card.style.width = '100%';
+    card.innerHTML = `
+        <div class="ranking-card-header">
+            <i class="fa-solid fa-users-gear"></i>
+            <span>สรุปงานจบของช่าง (เรียงตามยอดเงินจบงานจริง)</span>
+        </div>
+        <div class="ranking-list" id="repair-ranking-list"></div>
+    `;
+
+    const listContainer = card.querySelector('#repair-ranking-list');
+
+    techList.forEach((tech, index) => {
+        const rank = index + 1;
+        let rankClass = 'rank-other';
+        let rankBadgeContent = rank;
+
+        if (rank === 1) {
+            rankClass = 'rank-1';
+            rankBadgeContent = '<i class="fa-solid fa-trophy"></i>';
+        } else if (rank === 2) {
+            rankClass = 'rank-2';
+            rankBadgeContent = '<i class="fa-solid fa-medal"></i>';
+        } else if (rank === 3) {
+            rankClass = 'rank-3';
+            rankBadgeContent = '<i class="fa-solid fa-award"></i>';
+        }
+
+        const percentWidth = Math.min((tech.totalAmount / maxAmount) * 100, 100);
+        const isHighlighted = (selectedTech !== 'all' && selectedTech === tech.name);
+        const highlightedClass = isHighlighted ? 'highlighted' : '';
+
+        const itemHTML = `
+            <div class="ranking-item ${highlightedClass}">
+                <div class="rank-badge ${rankClass}">${rankBadgeContent}</div>
+                <div class="ranking-info">
+                    <div class="ranking-name-row">
+                        <span class="ranking-name">${tech.name}</span>
+                        <div style="text-align: right;">
+                            <span class="ranking-value" style="color: #27ae60;">${fMoney(tech.totalAmount)}</span>
+                            <span style="font-size: 0.85rem; color: #64748b; margin-left: 8px;">(${fNum(tech.totalCount)} งาน)</span>
+                        </div>
+                    </div>
+                    <div class="ranking-progress-container">
+                        <div class="ranking-progress-bg">
+                            <div class="ranking-progress-fill" style="width: ${percentWidth}%; background: linear-gradient(90deg, #4a6ee0, #2ecc71);"></div>
+                        </div>
+                        <div class="ranking-meta" style="font-size: 0.8rem; color: #64748b;">
+                            <span>หน้าร้าน: <strong>${fNum(tech.storeCount)}</strong> งาน (${fMoney(tech.storeAmount)})</span>
+                            <span>ออนไลน์: <strong>${fNum(tech.onlineCount)}</strong> งาน (${fMoney(tech.onlineAmount)})</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        listContainer.innerHTML += itemHTML;
+    });
+
+    elements.techRankingContainer.appendChild(card);
+}
+
+// ตารางสรุปเปรียบเทียบรายเดือนสำหรับงานซ่อม (รูปแบบเดียวกับพนักงานขาย)
+function renderRepairMonthlyBreakdown() {
+    const elements = getRepairEls();
+    const thead = elements.monthlyThead;
+    const tbody = elements.monthlyTbody;
+    const tfoot = elements.monthlyTfoot;
+    if (!thead || !tbody) return;
+
+    // กรองเฉพาะงานที่จบ (ลูกค้ารับเครื่องแล้ว)
+    let jobs = filteredRepairs.filter(r => (r.status || '').trim() === 'ลูกค้ารับเครื่องแล้ว');
+
+    // กรองตามแบรนด์
+    if (selectedRepairBrand === 'apple') {
+        jobs = jobs.filter(r => {
+            const b = (r.brand || '').toLowerCase();
+            const m = (r.model || '').toLowerCase();
+            return b.includes('apple') || m.includes('iphone') || m.includes('ipad') || m.includes('airpod');
+        });
+    } else if (selectedRepairBrand === 'android') {
+        jobs = jobs.filter(r => {
+            const b = (r.brand || '').toLowerCase();
+            const m = (r.model || '').toLowerCase();
+            const androidList = ['samsung', 'oppo', 'vivo', 'redmi', 'xiaomi', 'realme', 'infinix', 'honor', 'huawei'];
+            return androidList.some(brand => b.includes(brand) || m.includes(brand));
+        });
+    } else if (selectedRepairBrand === 'other') {
+        jobs = jobs.filter(r => {
+            const b = (r.brand || '').toLowerCase();
+            const m = (r.model || '').toLowerCase();
+            const androidList = ['apple', 'iphone', 'ipad', 'airpod', 'samsung', 'oppo', 'vivo', 'redmi', 'xiaomi', 'realme', 'infinix', 'honor', 'huawei'];
+            return !androidList.some(brand => b.includes(brand) || m.includes(brand));
+        });
+    }
+
+    // ดึงเดือนที่ไม่ซ้ำกัน
+    const monthSet = new Set();
+    jobs.forEach(r => {
+        const dt = parseTimestampToDate(r.date);
+        if (dt) {
+            const y = dt.getFullYear();
+            const m = String(dt.getMonth() + 1).padStart(2, '0');
+            monthSet.add(`${y}-${m}`);
+        }
+    });
+
+    const months = Array.from(monthSet).sort();
+    const monthNamesThai = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+    const formatMonthHeader = (yyyyMM) => {
+        const [y, m] = yyyyMM.split('-');
+        const monthIdx = parseInt(m, 10) - 1;
+        return `${monthNamesThai[monthIdx]} ${y}`;
+    };
+
+    // หมวดหมู่งานซ่อมตามประเภทลูกค้า
+    const categories = [
+        "1. ลูกค้าหน้าร้าน",
+        "2. ลูกค้าออนไลน์"
+    ];
+
+    // Data Matrix: matrix[catIdx][monthKey] = { count: 0, amount: 0 }
+    const matrix = Array.from({ length: 2 }, () => ({}));
+    categories.forEach((_, catIdx) => {
+        months.forEach(m => {
+            matrix[catIdx][m] = { count: 0, amount: 0 };
+        });
+    });
+
+    // รวมข้อมูลลง Matrix
+    jobs.forEach(r => {
+        const dt = parseTimestampToDate(r.date);
+        if (!dt) return;
+        const mKey = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+        if (!months.includes(mKey)) return;
+
+        const cType = (r.customerType || '').trim();
+        const catIdx = cType.includes('ออนไลน์') ? 1 : 0;
+        const price = Number(r.actualPrice) || 0;
+
+        if (matrix[catIdx][mKey]) {
+            matrix[catIdx][mKey].count += 1;
+            matrix[catIdx][mKey].amount += price;
+        }
+    });
+
+    const fNum = (val) => (Number(val) || 0).toLocaleString('th-TH');
+    const fMoney = (val) => "฿" + (Number(val) || 0).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+    if (months.length === 0) {
+        thead.innerHTML = `
+            <tr>
+                <th class="text-left">ประเภทลูกค้า</th>
+                <th class="text-center">รวมทั้งหมด</th>
+            </tr>`;
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="2" class="text-center empty-state">ไม่มีข้อมูลงานซ่อมในช่วงเวลาหรือแบรนด์ที่คุณเลือก</td>
+            </tr>`;
+        if (tfoot) tfoot.innerHTML = '';
+        return;
+    }
+
+    // Render Table Header
+    let headHTML1 = `<tr><th rowspan="2" class="text-left" style="vertical-align: middle; min-width: 180px;">ประเภทลูกค้า</th>`;
+    months.forEach(m => {
+        headHTML1 += `<th colspan="2" class="text-center" style="min-width: 160px;">${formatMonthHeader(m)}</th>`;
+    });
+    headHTML1 += `<th colspan="2" class="text-center highlight-header" style="min-width: 170px;">รวมทั้งหมด</th></tr>`;
+
+    let headHTML2 = `<tr>`;
+    months.forEach(() => {
+        headHTML2 += `<th class="text-center" style="width: 70px;">จำนวน</th><th class="text-right" style="width: 100px;">จำนวนเงิน</th>`;
+    });
+    headHTML2 += `<th class="text-center highlight-header" style="width: 70px;">จำนวน</th><th class="text-right highlight-header" style="width: 110px;">จำนวนเงิน</th></tr>`;
+
+    thead.innerHTML = headHTML1 + headHTML2;
+
+    // Render Table Body
+    let bodyHTML = '';
+    const monthTotals = months.map(() => ({ count: 0, amount: 0 }));
+    let grandTotalCount = 0;
+    let grandTotalAmount = 0;
+
+    categories.forEach((catName, catIdx) => {
+        let rowCount = 0;
+        let rowAmount = 0;
+        let rowColsHTML = '';
+
+        months.forEach((m, mIdx) => {
+            const cell = matrix[catIdx][m] || { count: 0, amount: 0 };
+            rowCount += cell.count;
+            rowAmount += cell.amount;
+
+            monthTotals[mIdx].count += cell.count;
+            monthTotals[mIdx].amount += cell.amount;
+
+            rowColsHTML += `<td class="text-center">${cell.count > 0 ? fNum(cell.count) : '-'}</td>`;
+            rowColsHTML += `<td class="text-right">${cell.amount > 0 ? fMoney(cell.amount) : '-'}</td>`;
+        });
+
+        grandTotalCount += rowCount;
+        grandTotalAmount += rowAmount;
+
+        bodyHTML += `
+            <tr>
+                <td><strong>${catName}</strong></td>
+                ${rowColsHTML}
+                <td class="text-center highlight-cell"><strong>${rowCount > 0 ? fNum(rowCount) : '-'}</strong></td>
+                <td class="text-right highlight-cell"><strong>${rowAmount > 0 ? fMoney(rowAmount) : '-'}</strong></td>
+            </tr>`;
+    });
+
+    tbody.innerHTML = bodyHTML;
+
+    // Render Table Footer
+    let footColsHTML = '';
+    months.forEach((_, mIdx) => {
+        const mt = monthTotals[mIdx];
+        footColsHTML += `<td class="text-center"><strong>${fNum(mt.count)}</strong></td>`;
+        footColsHTML += `<td class="text-right"><strong>${fMoney(mt.amount)}</strong></td>`;
+    });
+
+    if (tfoot) {
+        tfoot.innerHTML = `
+            <tr class="total-footer-row">
+                <td><strong>รวมสุทธิ</strong></td>
+                ${footColsHTML}
+                <td class="text-center"><strong>${fNum(grandTotalCount)}</strong></td>
+                <td class="text-right"><strong>${fMoney(grandTotalAmount)}</strong></td>
+            </tr>`;
+    }
+}
+
+// เรนเดอร์ตารางรายการงานซ่อมแบบละเอียด
+function renderRepairTable() {
+    const elements = getRepairEls();
+    if (!elements.tableBody) return;
+
+    const query = elements.searchInput ? elements.searchInput.value.trim().toLowerCase() : '';
+    const fMoney = (num) => "฿" + (Number(num) || 0).toLocaleString('th-TH');
+
+    let displayList = [...filteredRepairs];
+
+    // ค้นหาตามช่อง Search
+    if (query) {
+        displayList = displayList.filter(r => {
+            const text = `${r.jobId} ${r.technician} ${r.brand} ${r.model} ${r.deviceType} ${r.symptom} ${r.customerType} ${r.status}`.toLowerCase();
+            return text.includes(query);
+        });
+    }
+
+    // เรียงตามวันที่ล่าสุดก่อน
+    displayList.sort((a, b) => {
+        const da = parseTimestampToDate(a.date);
+        const db = parseTimestampToDate(b.date);
+        const ta = da ? da.getTime() : 0;
+        const tb = db ? db.getTime() : 0;
+        return tb - ta;
+    });
+
+    if (elements.recordCount) elements.recordCount.innerText = displayList.length;
+
+    elements.tableBody.innerHTML = '';
+
+    if (displayList.length === 0) {
+        elements.tableBody.innerHTML = '<tr><td colspan="10" class="text-center empty-state">ไม่มีข้อมูลงานซ่อมในเงื่อนไขที่คุณเลือก</td></tr>';
+        return;
+    }
+
+    displayList.forEach(item => {
+        const dt = parseTimestampToDate(item.date);
+        let dateStr = '-';
+        if (dt) {
+            const day = String(dt.getDate()).padStart(2, '0');
+            const month = String(dt.getMonth() + 1).padStart(2, '0');
+            const year = dt.getFullYear();
+            const hour = String(dt.getHours()).padStart(2, '0');
+            const min = String(dt.getMinutes()).padStart(2, '0');
+            dateStr = `${day}/${month}/${year} ${hour}:${min}`;
+        } else if (item.date) {
+            dateStr = item.date.toString();
+        }
+
+        // สถานะ Badge
+        const status = (item.status || '').trim();
+        let statusBadge = `<span class="badge badge-status-default">${status || '-'}</span>`;
+        if (status.includes('รับเครื่องแล้ว')) {
+            statusBadge = `<span class="badge badge-status-completed"><i class="fa-solid fa-circle-check"></i> ${status}</span>`;
+        } else if (status.includes('รับเครื่องใหม่')) {
+            statusBadge = `<span class="badge badge-status-new"><i class="fa-solid fa-clock"></i> ${status}</span>`;
+        } else if (status.includes('ไม่ซ่อม') || status.includes('คืนลูกค้า')) {
+            statusBadge = `<span class="badge badge-status-return"><i class="fa-solid fa-circle-xmark"></i> ${status}</span>`;
+        }
+
+        // ประเภทลูกค้า Badge
+        const custType = (item.customerType || '').trim();
+        let custBadge = `<span class="badge badge-status-default">${custType || '-'}</span>`;
+        if (custType.includes('หน้าร้าน')) {
+            custBadge = `<span class="badge badge-cust-store"><i class="fa-solid fa-shop"></i> ${custType}</span>`;
+        } else if (custType.includes('ออนไลน์')) {
+            custBadge = `<span class="badge badge-cust-online"><i class="fa-solid fa-globe"></i> ${custType}</span>`;
+        }
+
+        // ลิงก์สลิปใบเสร็จ PaymentSlip
+        const pSlip = (item.paymentSlip || '').trim();
+        let slipBtn = `<span class="btn-proof-link btn-proof-disabled" title="ไม่มีหลักฐานสลิป"><i class="fa-solid fa-receipt"></i> ไม่มี</span>`;
+        if (pSlip.startsWith('http')) {
+            slipBtn = `<a href="${pSlip}" target="_blank" rel="noopener noreferrer" class="btn-proof-link btn-slip-active" title="คลิกเพื่อดูสลิปใบเสร็จ"><i class="fa-solid fa-receipt"></i> ดูสลิป</a>`;
+        }
+
+        // ลิงก์หลักฐานนัดรับ AppointmentSlip
+        const aSlip = (item.appointmentSlip || '').trim();
+        let apptBtn = `<span class="btn-proof-link btn-proof-disabled" title="ไม่มีหลักฐานนัดรับ"><i class="fa-solid fa-file-invoice"></i> ไม่มี</span>`;
+        if (aSlip.startsWith('http')) {
+            apptBtn = `<a href="${aSlip}" target="_blank" rel="noopener noreferrer" class="btn-proof-link btn-proof-active" title="คลิกเพื่อดูหลักฐานลูกค้าออนไลน์"><i class="fa-solid fa-file-invoice"></i> ดูหลักฐาน</a>`;
+        }
+
+        const deviceBrandModel = [item.deviceType, item.brand, item.model].filter(Boolean).join(' • ');
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="font-size: 0.9rem; color: #475569;">${dateStr}</td>
+            <td><strong style="color: var(--primary-color);">${item.jobId || '-'}</strong></td>
+            <td><strong>${item.technician || '-'}</strong></td>
+            <td>${deviceBrandModel || '-'}</td>
+            <td>${item.symptom || '-'}</td>
+            <td class="text-center">${statusBadge}</td>
+            <td class="text-center">${custBadge}</td>
+            <td class="text-right" style="font-weight: 600; color: #27ae60;">${item.actualPrice ? fMoney(item.actualPrice) : '-'}</td>
+            <td class="text-center">${slipBtn}</td>
+            <td class="text-center">${apptBtn}</td>
+        `;
+        elements.tableBody.appendChild(tr);
+    });
+}
+
+// แปลงรูปแบบวันที่ที่มาจากชีต (รองรับ DD/MM/YYYY HH:mm:ss, ISO, Date object)
+function parseTimestampToDate(val) {
+    if (!val) return null;
+    if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+    if (typeof val === 'number') return new Date(val);
+    const str = val.toString().trim();
+    if (!str) return null;
+
+    // รูปแบบ วัน/เดือน/ปี เช่น 24/08/2026 13:36:22
+    const parts = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+    if (parts) {
+        const d = parseInt(parts[1], 10);
+        const m = parseInt(parts[2], 10) - 1;
+        let y = parseInt(parts[3], 10);
+        if (y > 2500) y -= 543; // พ.ศ. เป็น ค.ศ.
+        const hr = parts[4] ? parseInt(parts[4], 10) : 0;
+        const min = parts[5] ? parseInt(parts[5], 10) : 0;
+        const sec = parts[6] ? parseInt(parts[6], 10) : 0;
+        return new Date(y, m, d, hr, min, sec);
+    }
+
+    const dt = new Date(str);
+    return isNaN(dt.getTime()) ? null : dt;
+}
+
+// ข้อมูลจำลองงานซ่อม อ้างอิงจากชีตจริงของผู้ใช้
+function generateMockRepairData() {
+    return [
+        { jobId: "REP-2608-5621", date: "24/08/2026 13:36:22", deviceType: "มือถือ", brand: "Apple", model: "Iphone15 Pro Max", symptom: "เปลี่ยนแบต", estPrice: 500, technician: "นาย ศรานุวัฒน์ นิมิตบัณฑิตทองดี (ต้อ)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 500, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample1/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5622", date: "24/08/2026 15:00:22", deviceType: "มือถือ", brand: "Apple", model: "Iphone13Pro Max", symptom: "เปลี่ยนก้นชาร์จ", estPrice: 3000, technician: "นาย ศรานุวัฒน์ นิมิตบัณฑิตทองดี (ต้อ)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 3000, customerType: "ลูกค้าออนไลน์", paymentSlip: "https://drive.google.com/file/d/sample2/view", appointmentSlip: "https://drive.google.com/file/d/sample3/view" },
+        { jobId: "REP-2608-5623", date: "24/08/2026 15:04:13", deviceType: "มือถือ", brand: "Apple", model: "iphone16", symptom: "แพรชาร์จเสีย", estPrice: 2500, technician: "นาย วรภัทร คุ้มเมือง (กิมเฮง)", status: "ไม่ซ่อมคืนลูกค้า", actualPrice: 0, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "", appointmentSlip: "" },
+        { jobId: "REP-2608-5624", date: "24/08/2026 16:25:28", deviceType: "คอม", brand: "Apple", model: "Airpod Pro2", symptom: "เปลี่ยนแบต", estPrice: 1500, technician: "นาย มายีน กือสันเทียะ (มาย)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 1500, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample4/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5625", date: "24/08/2026 17:51:41", deviceType: "มือถือ", brand: "Oppo", model: "a5", symptom: "เปลี่ยนจอ", estPrice: 1400, technician: "นาย มายีน กือสันเทียะ (มาย)", status: "รับเครื่องใหม่", actualPrice: 0, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "", appointmentSlip: "" },
+        { jobId: "REP-2608-5627", date: "25/08/2026 14:37:11", deviceType: "มือถือ", brand: "Oppo", model: "A7", symptom: "ปุ่มพาวเวอร์ เสีย", estPrice: 400, technician: "นาย วรภัทร คุ้มเมือง (กิมเฮง)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 400, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample5/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5628", date: "25/08/2026 14:59:15", deviceType: "มือถือ", brand: "Samsung", model: "a02", symptom: "เปลี่ยนตูดชาร์จ", estPrice: 400, technician: "นาย มายีน กือสันเทียะ (มาย)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 400, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample6/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5629", date: "25/08/2026 15:03:54", deviceType: "มือถือ", brand: "Apple", model: "8plus", symptom: "ล้างเครื่อง", estPrice: 1000, technician: "นาย มายีน กือสันเทียะ (มาย)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 1000, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample7/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5630", date: "25/08/2026 15:20:02", deviceType: "คอม", brand: "อื่นๆ", model: "-", symptom: "เปลี่ยนก้นชาร์จ poket WiFi", estPrice: 400, technician: "นาย ทศวิษ ทิพย์สาคร (ชาบุน)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 400, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample8/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5631", date: "25/08/2026 18:11:06", deviceType: "มือถือ", brand: "Apple", model: "8 Plus", symptom: "บายพาสเครื่อง", estPrice: 1000, technician: "นาย มายีน กือสันเทียะ (มาย)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 1000, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample9/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5632", date: "26/08/2026 15:28:05", deviceType: "แท็บเล็ต", brand: "Apple", model: "ipad pro 11 นิ้ว 2", symptom: "ลอกกระจกใหม่ 3500 บาท", estPrice: 3500, technician: "นาย ทศวิษ ทิพย์สาคร (ชาบุน)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 6500, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample10/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5633", date: "26/08/2026 15:45:27", deviceType: "มือถือ", brand: "Apple", model: "iphone8", symptom: "เปลี่ยนแบต", estPrice: 1500, technician: "นาย มายีน กือสันเทียะ (มาย)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 1500, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample11/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5634", date: "27/08/2026 11:19:32", deviceType: "มือถือ", brand: "อื่นๆ", model: "Honor 200 pro", symptom: "รับจ้างเปลี่ยนจอ และ เลนส์กล้อง", estPrice: 600, technician: "นาย วรภัทร คุ้มเมือง (กิมเฮง)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 600, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample12/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5636", date: "28/08/2026 11:57:52", deviceType: "แท็บเล็ต", brand: "Apple", model: "ipad Gen 7", symptom: "เปลี่ยนจอ", estPrice: 1800, technician: "นาย วรภัทร คุ้มเมือง (กิมเฮง)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 1800, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample13/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5637", date: "28/08/2026 14:05:37", deviceType: "มือถือ", brand: "Apple", model: "12 pro max", symptom: "เปลี่ยนฝาหลังและแพรชาร์จ", estPrice: 5000, technician: "นาย มายีน กือสันเทียะ (มาย)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 5000, customerType: "ลูกค้าออนไลน์", paymentSlip: "https://drive.google.com/file/d/sample14/view", appointmentSlip: "https://drive.google.com/file/d/sample15/view" },
+        { jobId: "REP-2608-5638", date: "29/08/2026 09:11:50", deviceType: "มือถือ", brand: "Redmi", model: "Note 13", symptom: "ตูดชาร์จเริ่มชาร์จเข้าบ้างไม่เข้าบ้าง", estPrice: 800, technician: "นาย มายีน กือสันเทียะ (มาย)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 800, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample16/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5639", date: "29/08/2026 14:15:08", deviceType: "มือถือ", brand: "Oppo", model: "A78 5G", symptom: "เปลี่ยนจอ", estPrice: 1200, technician: "นาย วรภัทร คุ้มเมือง (กิมเฮง)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 1200, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample17/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5640", date: "29/08/2026 17:22:27", deviceType: "มือถือ", brand: "Apple", model: "Iphone 11", symptom: "เปลี่ยนจอ", estPrice: 2500, technician: "นาย ศรานุวัฒน์ นิมิตบัณฑิตทองดี (ต้อ)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 2500, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample18/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5641", date: "29/08/2026 17:51:07", deviceType: "มือถือ", brand: "Apple", model: "Iphone 15 Pro", symptom: "เปลี่ยนฝาหลัง", estPrice: 2500, technician: "นาย ศรานุวัฒน์ นิมิตบัณฑิตทองดี (ต้อ)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 2500, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample19/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5642", date: "30/08/2026 17:10:10", deviceType: "มือถือ", brand: "Apple", model: "Iphone14", symptom: "เปลี่ยนจอ", estPrice: 2500, technician: "นาย ศรานุวัฒน์ นิมิตบัณฑิตทองดี (ต้อ)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 2500, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample20/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5643", date: "30/08/2026 17:17:25", deviceType: "มือถือ", brand: "Infinix", model: "hot 50 i", symptom: "เปลี่ยนจอ 1300 บาท และ ฟิล์ม 150 บาท", estPrice: 1300, technician: "นาย วรภัทร คุ้มเมือง (กิมเฮง)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 1300, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample21/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5644", date: "31/08/2026 08:42:37", deviceType: "มือถือ", brand: "Samsung", model: "A06", symptom: "จอแตก/เปลี่ยนจอ", estPrice: 1500, technician: "นาย บัญญัติ ไม้กลาง (นนท์)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 1500, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample22/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5646", date: "31/08/2026 17:00:00", deviceType: "มือถือ", brand: "Samsung", model: "A36 5G", symptom: "จอดับ/ซ่อมช็อกเก็ต", estPrice: 800, technician: "นาย บัญญัติ ไม้กลาง (นนท์)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 1900, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample23/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5647", date: "01/09/2026 11:19:02", deviceType: "มือถือ", brand: "Samsung", model: "a 13 5g", symptom: "ล้างไวรัส 150 บาท", estPrice: 150, technician: "นาย บัญญัติ ไม้กลาง (นนท์)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 150, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample24/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5649", date: "01/09/2026 11:44:36", deviceType: "มือถือ", brand: "Vivo", model: "y16s", symptom: "เปลี่ยนจอ 1300 บาท และติดฟิล์ม 150 บาท", estPrice: 1300, technician: "นาย วรภัทร คุ้มเมือง (กิมเฮง)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 1300, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample25/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5651", date: "01/09/2026 12:33:56", deviceType: "มือถือ", brand: "Samsung", model: "A12", symptom: "เปลี่ยนจอ+ติดฟิล์ม", estPrice: 1650, technician: "นาย บัญญัติ ไม้กลาง (นนท์)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 1650, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample26/view", appointmentSlip: "" },
+        { jobId: "REP-2608-5652", date: "01/09/2026 16:46:37", deviceType: "แท็บเล็ต", brand: "Apple", model: "ipad air 5", symptom: "เปลี่ยนจอ", estPrice: 7500, technician: "นาย วรภัทร คุ้มเมือง (กิมเฮง)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 7500, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample27/view", appointmentSlip: "" }
+    ];
+}
+
