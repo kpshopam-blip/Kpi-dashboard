@@ -1066,30 +1066,46 @@ function getRepairEls() {
     return repairEls;
 }
 
-// ระบบสลับแท็บหน้าจอหลัก (Sales KPI vs Repairs)
+// ระบบสลับแท็บหน้าจอหลัก (Sales KPI vs Repairs vs Commission Voucher)
 window.switchView = function(view) {
     const salesContainer = document.getElementById('sales-view-container');
     const repairContainer = document.getElementById('repair-view-container');
+    const commContainer = document.getElementById('commission-view-container');
+    
     const tabSales = document.getElementById('tab-btn-sales');
     const tabRepair = document.getElementById('tab-btn-repair');
+    const tabComm = document.getElementById('tab-btn-commission');
+    
     const headerTitle = document.getElementById('header-main-title');
     const headerIcon = document.getElementById('header-main-icon');
 
+    // ล้าง active tabs ทั้งหมด
+    if (tabSales) tabSales.classList.remove('active');
+    if (tabRepair) tabRepair.classList.remove('active');
+    if (tabComm) tabComm.classList.remove('active');
+
+    // ซ่อน containers ทั้งหมด
+    if (salesContainer) salesContainer.style.display = 'none';
+    if (repairContainer) repairContainer.style.display = 'none';
+    if (commContainer) commContainer.style.display = 'none';
+
     if (view === 'sales') {
         if (salesContainer) salesContainer.style.display = 'block';
-        if (repairContainer) repairContainer.style.display = 'none';
         if (tabSales) tabSales.classList.add('active');
-        if (tabRepair) tabRepair.classList.remove('active');
         if (headerTitle) headerTitle.innerText = "ระบบติดตาม KPI ยอดขายพนักงาน";
         if (headerIcon) headerIcon.className = "fa-solid fa-chart-line";
-    } else {
-        if (salesContainer) salesContainer.style.display = 'none';
+    } else if (view === 'repair') {
         if (repairContainer) repairContainer.style.display = 'block';
         if (tabRepair) tabRepair.classList.add('active');
-        if (tabSales) tabSales.classList.remove('active');
         if (headerTitle) headerTitle.innerText = "ระบบติดตามข้อมูลงานซ่อมช่าง";
         if (headerIcon) headerIcon.className = "fa-solid fa-screwdriver-wrench";
         updateRepairDashboard();
+    } else if (view === 'commission') {
+        if (commContainer) commContainer.style.display = 'block';
+        if (tabComm) tabComm.classList.add('active');
+        if (headerTitle) headerTitle.innerText = "ระบบออกเอกสารสรุปเบิกจ่ายค่าคอมมิชชัน";
+        if (headerIcon) headerIcon.className = "fa-solid fa-file-invoice-dollar";
+        initCommissionModule();
     }
 };
 
@@ -1734,4 +1750,521 @@ function generateMockRepairData() {
         { jobId: "REP-2608-5652", date: "01/09/2026 16:46:37", deviceType: "แท็บเล็ต", brand: "Apple", model: "ipad air 5", symptom: "เปลี่ยนจอ", estPrice: 7500, technician: "นาย วรภัทร คุ้มเมือง (กิมเฮง)", status: "ลูกค้ารับเครื่องแล้ว", actualPrice: 7500, customerType: "ลูกค้าหน้าร้าน", paymentSlip: "https://drive.google.com/file/d/sample27/view", appointmentSlip: "" }
     ];
 }
+
+// ==========================================
+// MODULE: COMMISSION VOUCHER (เอกสารสรุปเบิกจ่ายค่าคอมมิชชัน)
+// ==========================================
+let isCommInitialized = false;
+
+// เริ่มต้นโมดูลค่าคอมมิชชัน
+function initCommissionModule() {
+    populateCommissionEmployees();
+
+    if (!isCommInitialized) {
+        // กำหนดวันที่เริ่มต้น-สิ้นสุดอัตโนมัติ (ย้อนหลัง 7 วันตามรอบสัปดาห์)
+        const endD = new Date();
+        const startD = new Date();
+        startD.setDate(startD.getDate() - 6);
+
+        const formatDateVal = (d) => {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        };
+
+        const startDateInput = document.getElementById('comm-start-date');
+        const endDateInput = document.getElementById('comm-end-date');
+        if (startDateInput && !startDateInput.value) startDateInput.value = formatDateVal(startD);
+        if (endDateInput && !endDateInput.value) endDateInput.value = formatDateVal(endD);
+
+        isCommInitialized = true;
+    }
+
+    renderCommissionVoucher();
+}
+
+// เติมรายชื่อพนักงานลงใน Dropdown
+function populateCommissionEmployees() {
+    const empSelect = document.getElementById('comm-employee-select');
+    if (!empSelect) return;
+
+    const currentVal = empSelect.value;
+    const employees = new Set();
+
+    // ดึงจาก usersData
+    if (window.usersData && window.usersData.length > 0) {
+        window.usersData.forEach(u => {
+            if (u.name && u.name.trim()) employees.add(u.name.trim());
+        });
+    }
+
+    // ดึงจาก rawData ชีต Phone2
+    rawData.forEach(r => {
+        if (r.sheetName === "Phone2" && r.employee && r.employee.trim()) {
+            employees.add(r.employee.trim());
+        }
+    });
+
+    const sortedEmps = Array.from(employees).sort();
+    empSelect.innerHTML = '';
+    
+    // ถ้าไม่มีข้อมูล ให้สร้างตัวอย่าง
+    if (sortedEmps.length === 0) {
+        sortedEmps.push("น.ส. รัตนาภรณ์ สาระยิ่ง (ตูน)");
+        sortedEmps.push("น.ส. ธนาภา รักพุดชา (ปาล์ม)");
+    }
+
+    sortedEmps.forEach(emp => {
+        const opt = document.createElement('option');
+        opt.value = opt.textContent = emp;
+        empSelect.appendChild(opt);
+    });
+
+    if (currentVal && sortedEmps.includes(currentVal)) {
+        empSelect.value = currentVal;
+    }
+}
+
+// สลับรูปแบบเอกสาร (รอบสัปดาห์, รายเดือน, ทีมหลังบ้าน)
+function handleCommDocTypeChange() {
+    const docType = document.getElementById('comm-doc-type').value;
+    const empGroup = document.getElementById('comm-emp-group');
+    const startDateInput = document.getElementById('comm-start-date');
+    const endDateInput = document.getElementById('comm-end-date');
+
+    const now = new Date();
+    const formatDateVal = (d) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    };
+
+    if (docType === 'weekly') {
+        if (empGroup) empGroup.style.display = 'flex';
+        // รอบสัปดาห์: ย้อนหลัง 7 วัน
+        const startD = new Date();
+        startD.setDate(startD.getDate() - 6);
+        if (startDateInput) startDateInput.value = formatDateVal(startD);
+        if (endDateInput) endDateInput.value = formatDateVal(now);
+    } else if (docType === 'monthly') {
+        if (empGroup) empGroup.style.display = 'flex';
+        // รายเดือน: วันที่ 1 ถึงสิ้นเดือน
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        if (startDateInput) startDateInput.value = formatDateVal(firstDay);
+        if (endDateInput) endDateInput.value = formatDateVal(lastDay);
+    } else if (docType === 'backoffice') {
+        // ทีมหลังบ้าน
+        if (empGroup) empGroup.style.display = 'none';
+        const startD = new Date();
+        startD.setDate(startD.getDate() - 6);
+        if (startDateInput) startDateInput.value = formatDateVal(startD);
+        if (endDateInput) endDateInput.value = formatDateVal(now);
+    }
+
+    renderCommissionVoucher();
+}
+
+// ฟังก์ชันแปลงวันที่เป็นรูปแบบ วัน/เดือน/ปี เช่น 8/9/2026
+function formatThaiDateDisplay(dateInput) {
+    if (!dateInput) return '-';
+    let d = null;
+    if (dateInput instanceof Date) {
+        d = dateInput;
+    } else {
+        d = parseTimestampToDate(dateInput);
+    }
+    if (!d || isNaN(d.getTime())) return String(dateInput);
+    return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+}
+
+// ฟังก์ชันประมวลผลและสร้างเอกสารสรุปเบิกจ่ายค่าคอมมิชชัน
+function renderCommissionVoucher() {
+    const docTypeSelect = document.getElementById('comm-doc-type');
+    const docType = docTypeSelect ? docTypeSelect.value : 'weekly';
+    const empSelect = document.getElementById('comm-employee-select');
+    const selectedEmp = empSelect ? empSelect.value : '';
+
+    const startDateVal = document.getElementById('comm-start-date').value;
+    const endDateVal = document.getElementById('comm-end-date').value;
+
+    let startTimestamp = 0;
+    if (startDateVal) {
+        const sd = new Date(startDateVal);
+        sd.setHours(0, 0, 0, 0);
+        startTimestamp = sd.getTime();
+    }
+
+    let endTimestamp = Infinity;
+    if (endDateVal) {
+        const ed = new Date(endDateVal);
+        ed.setHours(23, 59, 59, 999);
+        endTimestamp = ed.getTime();
+    }
+
+    // 1. อัปเดตหัวเอกสาร
+    const mainTitleEl = document.getElementById('comm-main-title');
+    const docEmpNameEl = document.getElementById('comm-doc-emp-name');
+    const docDateRangeEl = document.getElementById('comm-doc-date-range');
+    const sumEmpTitleEl = document.getElementById('comm-sum-emp-title');
+
+    const startDisplayStr = startDateVal ? formatThaiDateDisplay(new Date(startDateVal)) : '-';
+    const endDisplayStr = endDateVal ? formatThaiDateDisplay(new Date(endDateVal)) : '-';
+    if (docDateRangeEl) docDateRangeEl.innerText = `${startDisplayStr}  ถึง  ${endDisplayStr}`;
+
+    if (docType === 'backoffice') {
+        if (mainTitleEl) mainTitleEl.innerText = "สรุปเบิกจ่ายค่าคอมมิชชัน ทีมหลังบ้าน (รายการขายส่ง)";
+        if (docEmpNameEl) docEmpNameEl.innerText = "ทีมหลังบ้าน KP Shop";
+        if (sumEmpTitleEl) sumEmpTitleEl.innerText = "ทีมหลังบ้าน";
+    } else if (docType === 'monthly') {
+        if (mainTitleEl) mainTitleEl.innerText = "สรุปเบิกจ่ายค่าคอมมิชชัน รายการขายสด iPhone มือ 2 หน้าร้าน (รายเดือน)";
+        if (docEmpNameEl) docEmpNameEl.innerText = selectedEmp || "-";
+        if (sumEmpTitleEl) sumEmpTitleEl.innerText = selectedEmp || "ชื่อพนักงาน";
+    } else {
+        if (mainTitleEl) mainTitleEl.innerText = "สรุปเบิกจ่ายค่าคอมมิชชัน การขายเครื่องราคาส่ง & รับซื้อเครื่อง";
+        if (docEmpNameEl) docEmpNameEl.innerText = selectedEmp || "-";
+        if (sumEmpTitleEl) sumEmpTitleEl.innerText = selectedEmp || "ชื่อพนักงาน";
+    }
+
+    // 2. ดึงข้อมูลจาก rawData และ buybackRawData
+    const allSales = rawData || [];
+    const allBuyback = window.buybackRawData || [];
+
+    // กรองสินค้า Phone2 ที่เป็น Apple ในช่วงวันที่
+    const phone2AppleSales = allSales.filter(item => {
+        if (item.sheetName !== "Phone2") return false;
+        
+        // เช็คแบรนด์ Apple
+        const brandStr = (item.brand || '').toString().toLowerCase();
+        const modelStr = (item.model || '').toString().toLowerCase();
+        const isApple = brandStr.includes('apple') || modelStr.includes('iphone') || modelStr.includes('ipad');
+        if (!isApple) return false;
+
+        // เช็ควันที่
+        const d = parseTimestampToDate(item.date);
+        if (!d) return false;
+        const t = d.getTime();
+        if (t < startTimestamp || t > endTimestamp) return false;
+
+        // เช็คพนักงาน (ถ้าเป็นหลังบ้าน ไม่กรองพนักงาน เพราะคิดยอดขายส่งรวมทั้งหมด)
+        if (docType !== 'backoffice') {
+            const empName = (item.employee || '').trim();
+            if (empName !== selectedEmp.trim()) return false;
+        }
+
+        return true;
+    });
+
+    // กรองรายการรับซื้อ (Apple)
+    const filteredBuybacks = allBuyback.filter(item => {
+        const brandStr = (item.brand || '').toString().toLowerCase();
+        const modelStr = (item.model || '').toString().toLowerCase();
+        const isApple = brandStr.includes('apple') || modelStr.includes('iphone') || modelStr.includes('ipad');
+        if (!isApple) return false;
+
+        const d = parseTimestampToDate(item.date);
+        if (!d) return false;
+        const t = d.getTime();
+        if (t < startTimestamp || t > endTimestamp) return false;
+
+        if (docType !== 'backoffice') {
+            const empName = (item.employee || '').trim();
+            if (empName !== selectedEmp.trim()) return false;
+        }
+
+        return true;
+    });
+
+    // 3. จำแนกรายการขายส่ง VS ขายสด iPhone มือ 2
+    const wholesaleItems = [];
+    const usedPhoneItems = [];
+
+    phone2AppleSales.forEach(item => {
+        const saleType = (item.saleType || '').toString().trim();
+        // รายการขายส่ง: ต้องเป็น "ส่งร้านพาร์ทเนอร์ (เงินสด)" เท่านั้น (ไม่นับเงินเชื่อ)
+        if (saleType.includes("ส่งร้านพาร์ทเนอร์") && !saleType.includes("เงินเชื่อ")) {
+            wholesaleItems.push(item);
+        } else {
+            // รายการขายอื่นๆ ใน Phone2 เช่น ขายสด, สินเชื่อ IT4, Kfinance
+            usedPhoneItems.push(item);
+        }
+    });
+
+    // จัดการ Map ลำดับเอกสาร 001, 002, 003... ตาม SaleID
+    const saleIdDocMap = new Map();
+    let currentDocNumber = 1;
+    const getDocNumber = (saleId) => {
+        const sid = (saleId || '').toString().trim();
+        if (!sid) {
+            const numStr = String(currentDocNumber++).padStart(3, '0');
+            return numStr;
+        }
+        if (!saleIdDocMap.has(sid)) {
+            const numStr = String(currentDocNumber++).padStart(3, '0');
+            saleIdDocMap.set(sid, numStr);
+        }
+        return saleIdDocMap.get(sid);
+    };
+
+    // ฟังก์ชันแปลง Model Code: ZP/A, TH/A -> ศูนย์ไทย, นอกนั้น -> แท้นอก
+    const formatModelOrigin = (mCode) => {
+        const mc = (mCode || '').toString().toUpperCase();
+        if (!mc) return 'แท้นอก';
+        if (mc.includes('ZP') || mc.includes('TH')) return 'ศูนย์ไทย';
+        return 'แท้นอก';
+    };
+
+    // ฟังก์ชันทำความสะอาดฟิลด์ความจุ เช่น /128 GB -> 128 GB หรือ 128
+    const formatCapacity = (cap) => {
+        let c = (cap || '').toString().replace(/^\/+/, '').trim();
+        return c.replace(/\s*GB/i, '').trim() || '-';
+    };
+
+    // ==========================================
+    // ตารางที่ 1: รายการขายเครื่องราคาส่ง (สีฟ้า)
+    // ==========================================
+    const wsTbody = document.getElementById('comm-table-wholesale-body');
+    let totalWsQty = 0;
+    let totalWsAmount = 0;
+    let totalWsCommission = 0;
+
+    let wsRowsHtml = '';
+    wholesaleItems.forEach(item => {
+        const docNum = getDocNumber(item.saleId);
+        const dateStr = formatThaiDateDisplay(item.date);
+        const modelName = item.model || item.category || '-';
+        const cap = formatCapacity(item.capacity);
+        const origin = formatModelOrigin(item.modelCode);
+        const price = Number(item.price) || 0;
+        const qty = 1; // 1 เครื่องต่อแถว
+        const rowAmount = price * qty;
+        
+        // ค่าคอมมิชชันขายส่ง: เซลส์ผู้ขายได้รับ 70 บาท / เครื่อง
+        const comm = (docType === 'backoffice') ? 0 : 70;
+
+        totalWsQty += qty;
+        totalWsAmount += rowAmount;
+        totalWsCommission += comm;
+
+        const customer = item.customerName || '-';
+        const remark = item.paymentMethod || 'เงินโอน';
+
+        wsRowsHtml += `
+            <tr>
+                <td class="text-center">${docNum}</td>
+                <td class="text-center">${dateStr}</td>
+                <td>${modelName}</td>
+                <td class="text-center">${cap}</td>
+                <td class="text-center">${origin}</td>
+                <td class="text-center">${qty}</td>
+                <td class="text-right">${price.toLocaleString('th-TH')}</td>
+                <td class="text-right">${rowAmount.toLocaleString('th-TH')}</td>
+                <td>${customer}</td>
+                <td class="text-right font-bold">${comm > 0 ? comm.toLocaleString('th-TH') : '-'}</td>
+                <td class="text-center">${remark}</td>
+            </tr>
+        `;
+    });
+
+    if (wholesaleItems.length === 0) {
+        wsRowsHtml = `<tr><td colspan="11" class="text-center" style="color: #94a3b8; padding: 12px;">- ไม่มีรายการขายราคาส่ง -</td></tr>`;
+    }
+    if (wsTbody) wsTbody.innerHTML = wsRowsHtml;
+
+    document.getElementById('comm-ws-total-qty').innerText = totalWsQty.toLocaleString('th-TH');
+    document.getElementById('comm-ws-total-amount').innerText = totalWsAmount.toLocaleString('th-TH');
+    document.getElementById('comm-ws-total-comm').innerText = totalWsCommission.toLocaleString('th-TH');
+
+
+    // ==========================================
+    // ตารางที่ 2: รายการขาย iPhone มือ 2 (สีเขียว)
+    // ==========================================
+    const usedTbody = document.getElementById('comm-table-usedphone-body');
+    let totalUsedQty = 0;
+    let totalUsedAmount = 0;
+    let totalUsedCommission = 0;
+
+    // เช็คเงื่อนไข: หากเป็นรายเดือน ต้องขายได้ >= 5 เครื่องขึ้นไป จึงจะได้ค่าคอม
+    const meetsUsedTarget = (usedPhoneItems.length >= 5);
+
+    let usedRowsHtml = '';
+    if (docType === 'monthly') {
+        usedPhoneItems.forEach(item => {
+            const docNum = getDocNumber(item.saleId);
+            const dateStr = formatThaiDateDisplay(item.date);
+            const modelName = item.model || item.category || '-';
+            const cap = formatCapacity(item.capacity);
+            const origin = formatModelOrigin(item.modelCode);
+            const price = Number(item.price) || 0;
+            const qty = 1;
+            const rowAmount = price * qty;
+            
+            // อัตราค่าคอมมิชชันตามช่วงราคา (เฉพาะเมื่อผ่านเป้า 5 เครื่อง)
+            let comm = 0;
+            if (meetsUsedTarget) {
+                if (price >= 20001) comm = 300;
+                else if (price >= 15000) comm = 200;
+                else if (price >= 10000) comm = 100;
+            }
+
+            totalUsedQty += qty;
+            totalUsedAmount += rowAmount;
+            totalUsedCommission += comm;
+
+            const customer = item.customerName || '-';
+            const payType = item.paymentMethod || item.saleType || 'เงินโอน';
+
+            usedRowsHtml += `
+                <tr>
+                    <td class="text-center">${docNum}</td>
+                    <td class="text-center">${dateStr}</td>
+                    <td>${modelName}</td>
+                    <td class="text-center">${cap}</td>
+                    <td class="text-center">${origin}</td>
+                    <td class="text-center">${qty}</td>
+                    <td class="text-right">${price.toLocaleString('th-TH')}</td>
+                    <td class="text-right">${rowAmount.toLocaleString('th-TH')}</td>
+                    <td>${customer}</td>
+                    <td class="text-center">${payType}</td>
+                    <td class="text-right font-bold">${comm > 0 ? comm.toLocaleString('th-TH') : '0'}</td>
+                </tr>
+            `;
+        });
+
+        if (usedPhoneItems.length === 0) {
+            usedRowsHtml = `<tr><td colspan="11" class="text-center" style="color: #94a3b8; padding: 12px;">- ไม่มีรายการขายสด iPhone มือ 2 -</td></tr>`;
+        } else if (!meetsUsedTarget) {
+            usedRowsHtml += `<tr><td colspan="11" class="text-center" style="color: #dc2626; background: #fff1f2; font-weight: 600; padding: 6px;">⚠️ ขายได้ ${usedPhoneItems.length} เครื่อง (ไม่ถึงเกณฑ์ขั้นต่ำ 5 เครื่อง/เดือน จึงยังไม่ได้รับค่าคอมมิชชัน)</td></tr>`;
+        }
+    } else {
+        // รอบสัปดาห์: ตามตัวอย่าง PDF ตารางมือ 2 จะแสดงยอดว่างหรือ 0 เพราะไปตัดจ่ายในรอบรายเดือน
+        usedRowsHtml = `<tr><td colspan="11" class="text-center" style="color: #94a3b8; padding: 10px;">(รายการขายสด iPhone มือ 2 ตัดจ่ายในใบสรุปรายเดือน)</td></tr>`;
+    }
+
+    if (usedTbody) usedTbody.innerHTML = usedRowsHtml;
+
+    document.getElementById('comm-used-total-qty').innerText = totalUsedQty.toLocaleString('th-TH');
+    document.getElementById('comm-used-total-amount').innerText = totalUsedAmount.toLocaleString('th-TH');
+    document.getElementById('comm-used-total-comm').innerText = totalUsedCommission.toLocaleString('th-TH');
+
+
+    // ==========================================
+    // ตารางที่ 3: รายการรับซื้อเครื่อง (iPhone) (สีส้ม/ชมพู)
+    // ==========================================
+    const bbTbody = document.getElementById('comm-table-buyback-body');
+    let totalBbQty = 0;
+    let totalBbAmount = 0;
+    let totalBbCommission = 0;
+
+    let bbRowsHtml = '';
+    // หากเป็นใบสรุปหลังบ้าน จะไม่แสดงตารางรับซื้อ
+    if (docType !== 'backoffice') {
+        filteredBuybacks.forEach((item, idx) => {
+            const docNum = String(idx + 1).padStart(3, '0');
+            const dateStr = formatThaiDateDisplay(item.date);
+            const modelName = item.model || '-';
+            const cap = formatCapacity(item.capacity);
+            const colorModel = item.color || '-';
+            const price = Number(item.price) || 0;
+            const qty = 1;
+            const rowAmount = price * qty;
+
+            // ค่าคอมมิชชันรับซื้อ: 10k-14.9k = 100, 15k-20k = 200, 20k+ = 300
+            let comm = 0;
+            if (price >= 20001) comm = 300;
+            else if (price >= 15000) comm = 200;
+            else if (price >= 10000) comm = 100;
+
+            totalBbQty += qty;
+            totalBbAmount += rowAmount;
+            totalBbCommission += comm;
+
+            bbRowsHtml += `
+                <tr>
+                    <td class="text-center">${docNum}</td>
+                    <td class="text-center">${dateStr}</td>
+                    <td>${modelName}</td>
+                    <td class="text-center">${cap}</td>
+                    <td class="text-center">${colorModel}</td>
+                    <td class="text-center">${qty}</td>
+                    <td class="text-right">${price.toLocaleString('th-TH')}</td>
+                    <td class="text-right">${rowAmount.toLocaleString('th-TH')}</td>
+                    <td>ลูกค้าหน้าร้าน</td>
+                    <td class="text-right font-bold">${comm > 0 ? comm.toLocaleString('th-TH') : '0'}</td>
+                    <td class="text-center">รับซื้อ</td>
+                </tr>
+            `;
+        });
+    }
+
+    if (filteredBuybacks.length === 0 || docType === 'backoffice') {
+        bbRowsHtml = `<tr><td colspan="11" class="text-center" style="color: #94a3b8; padding: 12px;">- ไม่มีรายการรับซื้อเครื่อง -</td></tr>`;
+    }
+    if (bbTbody) bbTbody.innerHTML = bbRowsHtml;
+
+    document.getElementById('comm-bb-total-qty').innerText = totalBbQty.toLocaleString('th-TH');
+    document.getElementById('comm-bb-total-amount').innerText = totalBbAmount.toLocaleString('th-TH');
+    document.getElementById('comm-bb-total-comm').innerText = totalBbCommission.toLocaleString('th-TH');
+
+
+    // ==========================================
+    // ส่วนสรุปยอดท้ายเอกสาร (Footer Summary)
+    // ==========================================
+    // กล่องสรุปเซลส์
+    document.getElementById('comm-sum-ws-qty').innerText = totalWsQty.toLocaleString('th-TH');
+    document.getElementById('comm-sum-ws-comm').innerText = totalWsCommission.toLocaleString('th-TH');
+
+    document.getElementById('comm-sum-used-qty').innerText = totalUsedQty.toLocaleString('th-TH');
+    document.getElementById('comm-sum-used-comm').innerText = totalUsedCommission.toLocaleString('th-TH');
+
+    document.getElementById('comm-sum-bb-qty').innerText = totalBbQty.toLocaleString('th-TH');
+    document.getElementById('comm-sum-bb-comm').innerText = totalBbCommission.toLocaleString('th-TH');
+
+    const grandTotalCommission = totalWsCommission + totalUsedCommission + totalBbCommission;
+    document.getElementById('comm-sum-grand-total').innerText = grandTotalCommission.toLocaleString('th-TH');
+
+    // กล่องทีมหลังบ้าน (ยอดขายส่งทั้งหมด x 30 บาท/เครื่อง)
+    // นับยอดขายส่งทั้งหมดในรอบวันที่ ไม่จำกัดพนักงาน
+    const totalBackofficeWsQty = allSales.filter(item => {
+        if (item.sheetName !== "Phone2") return false;
+        const brandStr = (item.brand || '').toString().toLowerCase();
+        const modelStr = (item.model || '').toString().toLowerCase();
+        const isApple = brandStr.includes('apple') || modelStr.includes('iphone') || modelStr.includes('ipad');
+        if (!isApple) return false;
+
+        const d = parseTimestampToDate(item.date);
+        if (!d) return false;
+        const t = d.getTime();
+        if (t < startTimestamp || t > endTimestamp) return false;
+
+        const saleType = (item.saleType || '').toString().trim();
+        return saleType.includes("ส่งร้านพาร์ทเนอร์") && !saleType.includes("เงินเชื่อ");
+    }).length;
+
+    const backofficeCommission = totalBackofficeWsQty * 30;
+    document.getElementById('comm-bo-sum-qty').innerText = totalBackofficeWsQty.toLocaleString('th-TH');
+    document.getElementById('comm-bo-sum-comm').innerText = backofficeCommission.toLocaleString('th-TH');
+
+    // ปรับการแสดงผลกล่องสรุปตามประเภทเอกสาร
+    const empBox = document.getElementById('comm-box-emp-summary');
+    const boBox = document.getElementById('comm-box-bo-summary');
+    if (docType === 'backoffice') {
+        if (empBox) empBox.style.display = 'none';
+        if (boBox) {
+            boBox.style.display = 'block';
+            boBox.style.border = '2px solid #3b82f6';
+        }
+    } else {
+        if (empBox) empBox.style.display = 'block';
+        if (boBox) boBox.style.display = 'block';
+    }
+}
+
+// ฟังก์ชันสั่งพิมพ์ / เซฟเป็น PDF
+function printCommissionVoucher() {
+    window.print();
+}
+
 

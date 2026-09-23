@@ -33,6 +33,10 @@
                 <i class="fa-solid fa-screwdriver-wrench"></i>
                 <span>ข้อมูลงานซ่อมช่าง</span>
             </button>
+            <button id="tab-btn-commission" class="main-tab-btn" onclick="switchView('commission')">
+                <i class="fa-solid fa-file-invoice-dollar"></i>
+                <span>เอกสารสรุปจ่ายค่าคอม</span>
+            </button>
         </nav>
 
         <!-- ========================================== -->
@@ -389,6 +393,302 @@
                     </table>
                 </div>
             </section>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- VIEW 3: COMMISSION VOUCHER (เอกสารสรุปจ่ายค่าคอม) -->
+        <!-- ========================================== -->
+        <div id="commission-view-container" class="view-panel">
+            <!-- Filter & Action Controls (ซ่อนตอนพิมพ์) -->
+            <section class="filters-section panel no-print" style="margin-bottom: 20px;">
+                <div class="filter-group">
+                    <label for="comm-doc-type"><i class="fa-solid fa-file-lines"></i> รูปแบบเอกสาร:</label>
+                    <select id="comm-doc-type" onchange="handleCommDocTypeChange()">
+                        <option value="weekly">1. สรุปเบิกจ่ายรอบสัปดาห์ (ขายส่ง & รับซื้อ)</option>
+                        <option value="monthly">2. สรุปเบิกจ่ายรายเดือน (ขายสด iPhone มือ 2)</option>
+                        <option value="backoffice">3. สรุปค่าคอมมิชชั่น ทีมหลังบ้าน (30 บ./เครื่อง)</option>
+                    </select>
+                </div>
+                <div class="filter-group" id="comm-emp-group">
+                    <label for="comm-employee-select"><i class="fa-solid fa-user"></i> พนักงาน:</label>
+                    <select id="comm-employee-select">
+                        <!-- รายชื่อพนักงานจะถูกโหลดจาก JS -->
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="comm-start-date"><i class="fa-regular fa-calendar-days"></i> รอบวันที่:</label>
+                    <input type="date" id="comm-start-date">
+                </div>
+                <div class="filter-group">
+                    <label for="comm-end-date">ถึงวันที่:</label>
+                    <input type="date" id="comm-end-date">
+                </div>
+                <button id="btn-comm-filter" class="btn-primary" onclick="renderCommissionVoucher()">
+                    <i class="fa-solid fa-magnifying-glass"></i> ออกเอกสาร
+                </button>
+                <button id="btn-comm-print" class="btn-primary" style="background: #27ae60;" onclick="printCommissionVoucher()">
+                    <i class="fa-solid fa-print"></i> พิมพ์ / บันทึก PDF
+                </button>
+            </section>
+
+            <!-- A4 Document Simulation Container -->
+            <div class="comm-paper-wrapper">
+                <div id="commission-paper" class="comm-paper-page">
+                    
+                    <!-- ส่วนหัวเอกสาร -->
+                    <div class="comm-header-box">
+                        <div class="comm-title-bar" id="comm-main-title">
+                            สรุปเบิกจ่ายค่าคอมมิชชัน รายการขายเครื่องราคาส่ง
+                        </div>
+                        <div class="comm-meta-grid">
+                            <div class="comm-meta-left">
+                                <span class="meta-label">ชื่อ - นามสกุล</span>
+                                <span class="meta-val" id="comm-doc-emp-name">-</span>
+                            </div>
+                            <div class="comm-meta-right">
+                                <span class="meta-label">รอบขายวันที่</span>
+                                <span class="meta-val" id="comm-doc-date-range">- ถึง -</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ตารางที่ 1: รายการขายเครื่องราคาส่ง (สีฟ้า) -->
+                    <div class="comm-table-card" id="comm-sec-wholesale">
+                        <div class="comm-sub-banner banner-blue">
+                            สรุปเบิกจ่ายค่าคอมมิชชัน รายการขายเครื่องราคาส่ง
+                        </div>
+                        <div class="comm-table-wrap">
+                            <table class="comm-doc-table table-blue" id="comm-table-wholesale">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 7%;">ลำดับเอกสาร</th>
+                                        <th style="width: 9%;">วันที่ขาย</th>
+                                        <th style="width: 15%;">รุ่น</th>
+                                        <th style="width: 7%;">ความจุ</th>
+                                        <th style="width: 8%;">Model</th>
+                                        <th style="width: 8%;">จำนวน (เครื่อง)</th>
+                                        <th style="width: 9%;">ราคา/เครื่อง</th>
+                                        <th style="width: 10%;">ยอดรวม (บาท)</th>
+                                        <th style="width: 13%;">ชื่อลูกค้า / ร้านค้า</th>
+                                        <th style="width: 7%;">ค่าคอม</th>
+                                        <th style="width: 7%;">หมายเหตุ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="comm-table-wholesale-body">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                                <tfoot>
+                                    <tr class="comm-foot-row">
+                                        <td colspan="5" class="text-center font-bold">รวม</td>
+                                        <td class="text-center font-bold" id="comm-ws-total-qty">0</td>
+                                        <td class="text-center">-</td>
+                                        <td class="text-right font-bold" id="comm-ws-total-amount">0</td>
+                                        <td></td>
+                                        <td class="text-right font-bold" id="comm-ws-total-comm">0</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- ตารางที่ 2: รายการขาย iPhone มือ 2 (สีเขียว) -->
+                    <div class="comm-table-card" id="comm-sec-usedphone">
+                        <div class="comm-sub-banner banner-green">
+                            สรุปเบิกจ่ายค่าคอมมิชชัน รายการขาย Iphone มือ2
+                        </div>
+                        <div class="comm-table-wrap">
+                            <table class="comm-doc-table table-green" id="comm-table-usedphone">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 7%;">ลำดับเอกสาร</th>
+                                        <th style="width: 9%;">วันที่ขาย</th>
+                                        <th style="width: 14%;">รุ่น</th>
+                                        <th style="width: 7%;">ความจุ</th>
+                                        <th style="width: 8%;">Model</th>
+                                        <th style="width: 8%;">จำนวน (เครื่อง)</th>
+                                        <th style="width: 9%;">ราคา/เครื่อง</th>
+                                        <th style="width: 10%;">ยอดรวม (บาท)</th>
+                                        <th style="width: 12%;">ชื่อลูกค้า / ร้านค้า</th>
+                                        <th style="width: 9%;">ประเภทการชำระ</th>
+                                        <th style="width: 7%;">ค่าคอม</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="comm-table-usedphone-body">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                                <tfoot>
+                                    <tr class="comm-foot-row">
+                                        <td colspan="5" class="text-center font-bold">รวม</td>
+                                        <td class="text-center font-bold" id="comm-used-total-qty">0</td>
+                                        <td class="text-center">-</td>
+                                        <td class="text-right font-bold" id="comm-used-total-amount">0</td>
+                                        <td></td>
+                                        <td></td>
+                                        <td class="text-right font-bold" id="comm-used-total-comm">0</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- ตารางที่ 3: รายการรับซื้อเครื่อง iPhone (สีส้ม/ชมพู) -->
+                    <div class="comm-table-card" id="comm-sec-buyback">
+                        <div class="comm-sub-banner banner-pink">
+                            สรุปเบิกจ่ายค่าคอมมิชชัน รายการรับซื้อเครื่อง (iPhone)
+                        </div>
+                        <div class="comm-table-wrap">
+                            <table class="comm-doc-table table-pink" id="comm-table-buyback">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 7%;">ลำดับเอกสาร</th>
+                                        <th style="width: 9%;">วันที่รับซื้อ</th>
+                                        <th style="width: 15%;">รุ่น</th>
+                                        <th style="width: 7%;">ความจุ</th>
+                                        <th style="width: 8%;">Model/สี</th>
+                                        <th style="width: 8%;">จำนวน (เครื่อง)</th>
+                                        <th style="width: 9%;">ราคา/เครื่อง</th>
+                                        <th style="width: 10%;">ยอดรวม (บาท)</th>
+                                        <th style="width: 13%;">ชื่อลูกค้า / ร้านค้า</th>
+                                        <th style="width: 7%;">ค่าคอม</th>
+                                        <th style="width: 7%;">หมายเหตุ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="comm-table-buyback-body">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                                <tfoot>
+                                    <tr class="comm-foot-row">
+                                        <td colspan="5" class="text-center font-bold">รวม</td>
+                                        <td class="text-center font-bold" id="comm-bb-total-qty">0</td>
+                                        <td class="text-center">-</td>
+                                        <td class="text-right font-bold" id="comm-bb-total-amount">0</td>
+                                        <td></td>
+                                        <td class="text-right font-bold" id="comm-bb-total-comm">0</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- ส่วนสรุปท้ายเอกสาร และ ช่องลงนามอนุมัติ (3 คอลัมน์) -->
+                    <div class="comm-doc-footer-grid">
+                        <!-- คอลัมน์ที่ 1: สรุปยอดเงินของพนักงาน & หลังบ้าน -->
+                        <div class="comm-footer-col comm-summary-box-col">
+                            <!-- กล่องสรุปเซลส์ -->
+                            <div class="comm-box-card comm-emp-sum-card" id="comm-box-emp-summary">
+                                <div class="comm-box-card-header font-bold" id="comm-sum-emp-title">
+                                    ชื่อพนักงาน
+                                </div>
+                                <div class="comm-sum-line-row">
+                                    <span>รวม ขายส่ง</span>
+                                    <span><b id="comm-sum-ws-qty">0</b> เครื่อง</span>
+                                </div>
+                                <div class="comm-sum-line-row">
+                                    <span>รับค่าคอม</span>
+                                    <span><b id="comm-sum-ws-comm">0</b> บาท</span>
+                                </div>
+                                <div class="comm-sum-line-row">
+                                    <span>รวม ขายมือ 2</span>
+                                    <span><b id="comm-sum-used-qty">0</b> เครื่อง</span>
+                                </div>
+                                <div class="comm-sum-line-row">
+                                    <span>รับค่าคอม</span>
+                                    <span><b id="comm-sum-used-comm">0</b> บาท</span>
+                                </div>
+                                <div class="comm-sum-line-row">
+                                    <span>รวม รับซื้อ</span>
+                                    <span><b id="comm-sum-bb-qty">0</b> เครื่อง</span>
+                                </div>
+                                <div class="comm-sum-line-row">
+                                    <span>รับค่าคอม</span>
+                                    <span><b id="comm-sum-bb-comm">0</b> บาท</span>
+                                </div>
+                                <div class="comm-sum-line-row total-highlight">
+                                    <span class="font-bold">รวมรับค่าคอม</span>
+                                    <span class="font-bold"><b id="comm-sum-grand-total">0</b> บาท</span>
+                                </div>
+                            </div>
+
+                            <!-- กล่องสรุปทีมหลังบ้าน (30 บ./เครื่อง) -->
+                            <div class="comm-box-card comm-bo-sum-card" id="comm-box-bo-summary">
+                                <div class="comm-box-card-header font-bold">
+                                    ค่าคอมมิชชั่น ทีมหลังบ้าน
+                                </div>
+                                <div class="comm-sum-line-row">
+                                    <span>รวม</span>
+                                    <span><b id="comm-bo-sum-qty">0</b> เครื่อง</span>
+                                </div>
+                                <div class="comm-sum-line-row total-highlight">
+                                    <span>รับค่าคอม</span>
+                                    <span><b id="comm-bo-sum-comm">0</b> บาท</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- คอลัมน์ที่ 2: หมายเหตุเกณฑ์การจ่าย -->
+                        <div class="comm-footer-col comm-rules-col">
+                            <div class="comm-rules-content">
+                                <div class="rule-block">
+                                    <span class="rule-tag font-bold text-red">หมายเหตุ</span>
+                                    <span class="rule-text">ขายส่ง เซลส์ผู้ขาย ได้รับ 70 บาท / เครื่อง</span>
+                                </div>
+                                <div class="rule-block">
+                                    <span class="rule-indent">ขายส่ง ทีมหลังบ้าน ได้รับ 30 บาท / เครื่อง</span>
+                                </div>
+                                <div class="rule-block mt-2">
+                                    <span class="rule-tag font-bold text-red">หมายเหตุ</span>
+                                    <span class="rule-text font-bold">รับซื้อเครื่องมือสองหน้าร้าน</span>
+                                </div>
+                                <div class="rule-block">
+                                    <span class="rule-indent">เซลส์ผู้รับซื้อ : ได้รับ เครื่องละ 100-300 บาท</span>
+                                </div>
+                                <div class="rule-block">
+                                    <span class="rule-indent">เครื่องราคา 10,000 - 14,999 รับค่าคอม 100 บาท</span>
+                                </div>
+                                <div class="rule-block">
+                                    <span class="rule-indent">เครื่องราคา 15,000 - 20,000 รับค่าคอม 200 บาท</span>
+                                </div>
+                                <div class="rule-block">
+                                    <span class="rule-indent">เครื่องราคา 20,001 ขึ้นไป รับค่าคอม 300 บาท</span>
+                                </div>
+                                <div class="rule-block mt-2">
+                                    <span class="rule-tag font-bold text-red">หมายเหตุ</span>
+                                    <span class="rule-text font-bold">ขายสด iPhone มือ 2 หน้าร้าน</span>
+                                </div>
+                                <div class="rule-block">
+                                    <span class="rule-indent">เงื่อนไขรับสิทธิ์: ขายขั้นต่ำ 5 เครื่อง / เดือน</span>
+                                </div>
+                                <div class="rule-block">
+                                    <span class="rule-indent">เรทตามราคา: 10k-14.9k: 100บ. | 15k-20k: 200บ. | 20k+: 300บ.</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- คอลัมน์ที่ 3: ช่องลงนามอนุมัติ -->
+                        <div class="comm-footer-col comm-signature-col">
+                            <div class="comm-sign-block">
+                                <div class="sign-line">ลงชื่อ .............................................. ฝ่ายการเงิน</div>
+                                <div class="sign-name">( นางสาว เยาวพา คำสูงเนิน )</div>
+                                <div class="sign-date">วันที่ ............./............./..............</div>
+                            </div>
+
+                            <div class="comm-approval-block">
+                                <div class="approval-choice">
+                                    การอนุมัติ &nbsp;&nbsp;&nbsp; 
+                                    <span class="checkbox-box">▢</span> อนุมัติ &nbsp;&nbsp;&nbsp; 
+                                    <span class="checkbox-box">▢</span> ไม่อนุมัติ
+                                </div>
+                                <div class="sign-line mt-3">ลงชื่อ .............................................. ผู้อนุมัติ</div>
+                                <div class="sign-name">( นาย คณพศ โทสูงเนิน )</div>
+                                <div class="sign-date">วันที่ ............./............./..............</div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
         </div>
     </div>
 

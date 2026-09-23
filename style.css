@@ -875,6 +875,406 @@ tbody tr:hover {
     box-shadow: 0 2px 6px rgba(74, 110, 224, 0.25);
 }
 
+/* ========== COMMISSION VOUCHER STYLES ========== */
+.comm-paper-wrapper {
+    display: flex;
+    justify-content: center;
+    background-color: #cbd5e1;
+    padding: 24px 12px;
+    border-radius: 12px;
+    overflow-x: auto;
+}
+
+.comm-paper-page {
+    background-color: #ffffff;
+    width: 1060px;
+    min-height: 1400px;
+    padding: 24px 28px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+    box-sizing: border-box;
+    font-size: 12px;
+    color: #1e293b;
+    font-family: 'Kanit', sans-serif;
+}
+
+/* Header Box */
+.comm-header-box {
+    margin-bottom: 12px;
+}
+
+.comm-title-bar {
+    background-color: #d9e1f2;
+    border: 1.5px solid #8ea9db;
+    text-align: center;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 6px 10px;
+    color: #1e3a8a;
+    letter-spacing: 0.3px;
+}
+
+.comm-meta-grid {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-top: none;
+    background-color: #f8fafc;
+    font-size: 13px;
+}
+
+.comm-meta-grid .meta-label {
+    font-weight: 600;
+    color: #334155;
+    margin-right: 8px;
+}
+
+.comm-meta-grid .meta-val {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+/* Table Cards */
+.comm-table-card {
+    margin-bottom: 14px;
+}
+
+.comm-sub-banner {
+    padding: 4px 10px;
+    font-weight: 600;
+    font-size: 13px;
+    text-align: center;
+    border: 1px solid;
+    border-bottom: none;
+}
+
+.banner-blue {
+    background-color: #d9e1f2;
+    color: #1e3a8a;
+    border-color: #8ea9db;
+}
+
+.banner-green {
+    background-color: #e2efda;
+    color: #276749;
+    border-color: #a9d18e;
+}
+
+.banner-pink {
+    background-color: #fce4d6;
+    color: #9c4221;
+    border-color: #f4b084;
+}
+
+.comm-table-wrap {
+    overflow-x: auto;
+}
+
+.comm-doc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11.5px;
+    table-layout: fixed;
+}
+
+.comm-doc-table th, 
+.comm-doc-table td {
+    border: 1px solid #cbd5e1;
+    padding: 4px 6px;
+    vertical-align: middle;
+    line-height: 1.3;
+}
+
+.comm-doc-table thead th {
+    text-align: center;
+    font-weight: 600;
+    font-size: 11px;
+}
+
+.table-blue thead th {
+    background-color: #e9eef8;
+    color: #1e3a8a;
+    border-color: #8ea9db;
+}
+
+.table-green thead th {
+    background-color: #edf7e8;
+    color: #276749;
+    border-color: #a9d18e;
+}
+
+.table-pink thead th {
+    background-color: #fdf2ea;
+    color: #9c4221;
+    border-color: #f4b084;
+}
+
+.comm-doc-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+.comm-doc-table .comm-foot-row td {
+    background-color: #f1f5f9;
+    font-weight: 600;
+    border-top: 1.5px solid #94a3b8;
+}
+
+.table-blue .comm-foot-row td {
+    background-color: #e9eef8;
+}
+
+.table-green .comm-foot-row td {
+    background-color: #edf7e8;
+}
+
+.table-pink .comm-foot-row td {
+    background-color: #fdf2ea;
+}
+
+/* Footer Grid */
+.comm-doc-footer-grid {
+    display: grid;
+    grid-template-columns: 240px 1fr 280px;
+    gap: 16px;
+    margin-top: 18px;
+    font-size: 11.5px;
+    align-items: start;
+}
+
+/* Column 1: Summary Box */
+.comm-box-card {
+    border: 1.5px solid #a9d18e;
+    background-color: #ffffff;
+    margin-bottom: 12px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.comm-emp-sum-card {
+    border-color: #a9d18e;
+}
+
+.comm-emp-sum-card .comm-box-card-header {
+    background-color: #e2efda;
+    color: #276749;
+    padding: 4px 8px;
+    font-size: 12px;
+    border-bottom: 1px solid #a9d18e;
+}
+
+.comm-bo-sum-card {
+    border-color: #8ea9db;
+}
+
+.comm-bo-sum-card .comm-box-card-header {
+    background-color: #d9e1f2;
+    color: #1e3a8a;
+    padding: 4px 8px;
+    font-size: 12px;
+    border-bottom: 1px solid #8ea9db;
+}
+
+.comm-sum-line-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 8px;
+    border-bottom: 1px dashed #e2e8f0;
+    font-size: 11.5px;
+}
+
+.comm-sum-line-row:last-child {
+    border-bottom: none;
+}
+
+.comm-sum-line-row.total-highlight {
+    background-color: #f7fee7;
+    color: #166534;
+    border-top: 1.5px solid #a9d18e;
+    font-size: 12px;
+}
+
+.comm-bo-sum-card .comm-sum-line-row.total-highlight {
+    background-color: #eff6ff;
+    color: #1e40af;
+    border-top: 1.5px solid #8ea9db;
+}
+
+/* Column 2: Rules */
+.comm-rules-col {
+    padding: 4px 8px;
+    font-size: 11.5px;
+    line-height: 1.45;
+}
+
+.rule-block {
+    margin-bottom: 2px;
+}
+
+.rule-indent {
+    display: block;
+    padding-left: 56px;
+    color: #334155;
+}
+
+.rule-tag {
+    display: inline-block;
+    width: 52px;
+}
+
+.text-red {
+    color: #dc2626;
+}
+
+.mt-2 {
+    margin-top: 6px;
+}
+
+.mt-3 {
+    margin-top: 10px;
+}
+
+/* Column 3: Signatures */
+.comm-signature-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    font-size: 11.5px;
+}
+
+.comm-sign-block, .comm-approval-block {
+    padding: 4px 6px;
+}
+
+.sign-line {
+    margin-bottom: 4px;
+}
+
+.sign-name {
+    text-align: center;
+    color: #334155;
+    margin-bottom: 3px;
+}
+
+.sign-date {
+    text-align: center;
+    color: #64748b;
+}
+
+.approval-choice {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.checkbox-box {
+    font-size: 14px;
+    margin-right: 4px;
+    color: #475569;
+}
+
+/* Alignments & Utilities */
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-left { text-align: left; }
+.font-bold { font-weight: 600; }
+
+/* ========== PRINT STYLES (สำหรับสั่งพิมพ์ / เซฟ PDF ขนาด A4) ========== */
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 5mm 7mm;
+    }
+
+    body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* ซ่อนส่วนอื่นๆ ที่ไม่เกี่ยวข้องกับการพิมพ์ */
+    .dashboard-header,
+    .main-tabs-nav,
+    .no-print,
+    #sales-view-container,
+    #repair-view-container {
+        display: none !important;
+    }
+
+    .dashboard-container {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+    }
+
+    #commission-view-container {
+        display: block !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .comm-paper-wrapper {
+        background: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+    }
+
+    .comm-paper-page {
+        width: 100% !important;
+        min-height: auto !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+        font-size: 10.5px !important;
+    }
+
+    .comm-title-bar {
+        font-size: 14px !important;
+        padding: 4px 6px !important;
+    }
+
+    .comm-meta-grid {
+        font-size: 11px !important;
+        padding: 5px 8px !important;
+    }
+
+    .comm-sub-banner {
+        font-size: 11.5px !important;
+        padding: 3px 6px !important;
+    }
+
+    .comm-doc-table {
+        font-size: 10px !important;
+    }
+
+    .comm-doc-table th, 
+    .comm-doc-table td {
+        padding: 2.5px 4px !important;
+    }
+
+    .comm-doc-footer-grid {
+        grid-template-columns: 210px 1fr 240px !important;
+        gap: 10px !important;
+        margin-top: 10px !important;
+        font-size: 10px !important;
+    }
+
+    .comm-sum-line-row {
+        padding: 2px 6px !important;
+        font-size: 10px !important;
+    }
+
+    .rule-indent {
+        padding-left: 45px !important;
+    }
+}
+
+
 
 
 
