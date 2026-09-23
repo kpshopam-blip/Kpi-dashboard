@@ -2016,11 +2016,21 @@ function renderCommissionVoucher() {
         return 'แท้นอก';
     };
 
-    // ฟังก์ชันทำความสะอาดฟิลด์ความจุ เช่น /128 GB -> 128 GB หรือ 128
+    // ฟังก์ชันทำความสะอาดฟิลด์ความจุ ดึงเฉพาะตัวเลขความจุ เช่น 128, 256, 512
     const formatCapacity = (cap) => {
-        let c = (cap || '').toString().replace(/^\/+/, '').trim();
-        return c.replace(/\s*GB/i, '').trim() || '-';
+        const str = (cap || '').toString().trim();
+        const match = str.match(/(\d+\s*(?:TB|GB)?)/i);
+        if (match) {
+            let res = match[1].replace(/\s*GB/i, '').trim();
+            return res || '-';
+        }
+        return str.replace(/^\/+/, '').trim() || '-';
     };
+
+    // อ้างอิง Element ของตารางทั้ง 3 ส่วน
+    const secWholesale = document.getElementById('comm-sec-wholesale');
+    const secUsedPhone = document.getElementById('comm-sec-usedphone');
+    const secBuyback = document.getElementById('comm-sec-buyback');
 
     // ==========================================
     // ตารางที่ 1: รายการขายเครื่องราคาส่ง (สีฟ้า)
@@ -2030,45 +2040,66 @@ function renderCommissionVoucher() {
     let totalWsAmount = 0;
     let totalWsCommission = 0;
 
-    let wsRowsHtml = '';
+    // จัดกลุ่มรายการขายส่ง: รวมรายการที่ SaleID เดียวกัน, รุ่นเดียวกัน, ความจุเดียวกัน, Model เดียวกัน, ราคาเดียวกัน เป็น 1 แถว
+    const wsGroupMap = new Map();
     wholesaleItems.forEach(item => {
-        const docNum = getDocNumber(item.saleId);
-        const dateStr = formatThaiDateDisplay(item.date);
-        const modelName = item.model || item.category || '-';
+        const sid = (item.saleId || '').toString().trim();
+        const modelName = (item.model || item.category || '-').trim();
         const cap = formatCapacity(item.capacity);
         const origin = formatModelOrigin(item.modelCode);
         const price = Number(item.price) || 0;
-        const qty = 1; // 1 เครื่องต่อแถว
-        const rowAmount = price * qty;
-        
-        // ค่าคอมมิชชันขายส่ง: เซลส์ผู้ขายได้รับ 70 บาท / เครื่อง
-        const comm = (docType === 'backoffice') ? 0 : 70;
+        const customer = (item.customerName || '-').trim();
+        const payment = (item.paymentMethod || 'เงินโอน').trim();
+        const dateStr = formatThaiDateDisplay(item.date);
 
-        totalWsQty += qty;
+        const groupKey = `${sid}_${modelName}_${cap}_${origin}_${price}_${customer}_${payment}`;
+
+        if (!wsGroupMap.has(groupKey)) {
+            wsGroupMap.set(groupKey, {
+                saleId: sid,
+                date: dateStr,
+                modelName: modelName,
+                capacity: cap,
+                origin: origin,
+                price: price,
+                qty: 1,
+                customer: customer,
+                payment: payment
+            });
+        } else {
+            wsGroupMap.get(groupKey).qty += 1;
+        }
+    });
+
+    let wsRowsHtml = '';
+    wsGroupMap.forEach(grp => {
+        const docNum = getDocNumber(grp.saleId);
+        const rowAmount = grp.price * grp.qty;
+        // ค่าคอมมิชชันขายส่ง: เซลส์ผู้ขายได้รับ 70 บาท / เครื่อง
+        const comm = (docType === 'backoffice') ? 0 : (grp.qty * 70);
+
+        totalWsQty += grp.qty;
         totalWsAmount += rowAmount;
         totalWsCommission += comm;
-
-        const customer = item.customerName || '-';
-        const remark = item.paymentMethod || 'เงินโอน';
 
         wsRowsHtml += `
             <tr>
                 <td class="text-center">${docNum}</td>
-                <td class="text-center">${dateStr}</td>
-                <td>${modelName}</td>
-                <td class="text-center">${cap}</td>
-                <td class="text-center">${origin}</td>
-                <td class="text-center">${qty}</td>
-                <td class="text-right">${price.toLocaleString('th-TH')}</td>
+                <td class="text-center">${grp.date}</td>
+                <td>${grp.modelName}</td>
+                <td class="text-center">${grp.capacity}</td>
+                <td class="text-center">${grp.origin}</td>
+                <td class="text-center font-bold">${grp.qty}</td>
+                <td class="text-right">${grp.price.toLocaleString('th-TH')}</td>
                 <td class="text-right">${rowAmount.toLocaleString('th-TH')}</td>
-                <td>${customer}</td>
+                <td>${grp.customer}</td>
                 <td class="text-right font-bold">${comm > 0 ? comm.toLocaleString('th-TH') : '-'}</td>
-                <td class="text-center">${remark}</td>
+                <td class="text-center">${grp.payment}</td>
             </tr>
         `;
     });
 
-    if (wholesaleItems.length === 0) {
+    if (wsGroupMap.size === 0) {
         wsRowsHtml = `<tr><td colspan="11" class="text-center" style="color: #94a3b8; padding: 12px;">- ไม่มีรายการขายราคาส่ง -</td></tr>`;
     }
     if (wsTbody) wsTbody.innerHTML = wsRowsHtml;
@@ -2089,58 +2120,78 @@ function renderCommissionVoucher() {
     // เช็คเงื่อนไข: หากเป็นรายเดือน ต้องขายได้ >= 5 เครื่องขึ้นไป จึงจะได้ค่าคอม
     const meetsUsedTarget = (usedPhoneItems.length >= 5);
 
+    // จัดกลุ่มรายการขาย iPhone มือ 2
+    const usedGroupMap = new Map();
+    usedPhoneItems.forEach(item => {
+        const sid = (item.saleId || '').toString().trim();
+        const modelName = (item.model || item.category || '-').trim();
+        const cap = formatCapacity(item.capacity);
+        const origin = formatModelOrigin(item.modelCode);
+        const price = Number(item.price) || 0;
+        const customer = (item.customerName || '-').trim();
+        const payType = (item.paymentMethod || item.saleType || 'เงินโอน').trim();
+        const dateStr = formatThaiDateDisplay(item.date);
+
+        const groupKey = `${sid}_${modelName}_${cap}_${origin}_${price}_${customer}_${payType}`;
+
+        if (!usedGroupMap.has(groupKey)) {
+            usedGroupMap.set(groupKey, {
+                saleId: sid,
+                date: dateStr,
+                modelName: modelName,
+                capacity: cap,
+                origin: origin,
+                price: price,
+                qty: 1,
+                customer: customer,
+                payment: payType
+            });
+        } else {
+            usedGroupMap.get(groupKey).qty += 1;
+        }
+    });
+
     let usedRowsHtml = '';
     if (docType === 'monthly') {
-        usedPhoneItems.forEach(item => {
-            const docNum = getDocNumber(item.saleId);
-            const dateStr = formatThaiDateDisplay(item.date);
-            const modelName = item.model || item.category || '-';
-            const cap = formatCapacity(item.capacity);
-            const origin = formatModelOrigin(item.modelCode);
-            const price = Number(item.price) || 0;
-            const qty = 1;
-            const rowAmount = price * qty;
+        usedGroupMap.forEach(grp => {
+            const docNum = getDocNumber(grp.saleId);
+            const rowAmount = grp.price * grp.qty;
             
-            // อัตราค่าคอมมิชชันตามช่วงราคา (เฉพาะเมื่อผ่านเป้า 5 เครื่อง)
-            let comm = 0;
+            // อัตราค่าคอมมิชชันตามช่วงราคาต่อเครื่อง (เฉพาะเมื่อผ่านเป้า 5 เครื่อง)
+            let unitComm = 0;
             if (meetsUsedTarget) {
-                if (price >= 20001) comm = 300;
-                else if (price >= 15000) comm = 200;
-                else if (price >= 10000) comm = 100;
+                if (grp.price >= 20001) unitComm = 300;
+                else if (grp.price >= 15000) unitComm = 200;
+                else if (grp.price >= 10000) unitComm = 100;
             }
+            const rowComm = unitComm * grp.qty;
 
-            totalUsedQty += qty;
+            totalUsedQty += grp.qty;
             totalUsedAmount += rowAmount;
-            totalUsedCommission += comm;
-
-            const customer = item.customerName || '-';
-            const payType = item.paymentMethod || item.saleType || 'เงินโอน';
+            totalUsedCommission += rowComm;
 
             usedRowsHtml += `
                 <tr>
                     <td class="text-center">${docNum}</td>
-                    <td class="text-center">${dateStr}</td>
-                    <td>${modelName}</td>
-                    <td class="text-center">${cap}</td>
-                    <td class="text-center">${origin}</td>
-                    <td class="text-center">${qty}</td>
-                    <td class="text-right">${price.toLocaleString('th-TH')}</td>
+                    <td class="text-center">${grp.date}</td>
+                    <td>${grp.modelName}</td>
+                    <td class="text-center">${grp.capacity}</td>
+                    <td class="text-center">${grp.origin}</td>
+                    <td class="text-center font-bold">${grp.qty}</td>
+                    <td class="text-right">${grp.price.toLocaleString('th-TH')}</td>
                     <td class="text-right">${rowAmount.toLocaleString('th-TH')}</td>
-                    <td>${customer}</td>
-                    <td class="text-center">${payType}</td>
-                    <td class="text-right font-bold">${comm > 0 ? comm.toLocaleString('th-TH') : '0'}</td>
+                    <td>${grp.customer}</td>
+                    <td class="text-center">${grp.payment}</td>
+                    <td class="text-right font-bold">${rowComm > 0 ? rowComm.toLocaleString('th-TH') : '0'}</td>
                 </tr>
             `;
         });
 
-        if (usedPhoneItems.length === 0) {
+        if (usedGroupMap.size === 0) {
             usedRowsHtml = `<tr><td colspan="11" class="text-center" style="color: #94a3b8; padding: 12px;">- ไม่มีรายการขายสด iPhone มือ 2 -</td></tr>`;
         } else if (!meetsUsedTarget) {
-            usedRowsHtml += `<tr><td colspan="11" class="text-center" style="color: #dc2626; background: #fff1f2; font-weight: 600; padding: 6px;">⚠️ ขายได้ ${usedPhoneItems.length} เครื่อง (ไม่ถึงเกณฑ์ขั้นต่ำ 5 เครื่อง/เดือน จึงยังไม่ได้รับค่าคอมมิชชัน)</td></tr>`;
+            usedRowsHtml += `<tr><td colspan="11" class="text-center" style="color: #dc2626; background: #fff1f2; font-weight: 600; padding: 8px;">⚠️ ขายได้รวม ${totalUsedQty} เครื่อง (ไม่ถึงเกณฑ์ขั้นต่ำ 5 เครื่อง/เดือน จึงยังไม่ได้รับค่าคอมมิชชัน)</td></tr>`;
         }
-    } else {
-        // รอบสัปดาห์: ตามตัวอย่าง PDF ตารางมือ 2 จะแสดงยอดว่างหรือ 0 เพราะไปตัดจ่ายในรอบรายเดือน
-        usedRowsHtml = `<tr><td colspan="11" class="text-center" style="color: #94a3b8; padding: 10px;">(รายการขายสด iPhone มือ 2 ตัดจ่ายในใบสรุปรายเดือน)</td></tr>`;
     }
 
     if (usedTbody) usedTbody.innerHTML = usedRowsHtml;
@@ -2159,8 +2210,7 @@ function renderCommissionVoucher() {
     let totalBbCommission = 0;
 
     let bbRowsHtml = '';
-    // หากเป็นใบสรุปหลังบ้าน จะไม่แสดงตารางรับซื้อ
-    if (docType !== 'backoffice') {
+    if (docType === 'weekly') {
         filteredBuybacks.forEach((item, idx) => {
             const docNum = String(idx + 1).padStart(3, '0');
             const dateStr = formatThaiDateDisplay(item.date);
@@ -2199,7 +2249,7 @@ function renderCommissionVoucher() {
         });
     }
 
-    if (filteredBuybacks.length === 0 || docType === 'backoffice') {
+    if (filteredBuybacks.length === 0 || docType !== 'weekly') {
         bbRowsHtml = `<tr><td colspan="11" class="text-center" style="color: #94a3b8; padding: 12px;">- ไม่มีรายการรับซื้อเครื่อง -</td></tr>`;
     }
     if (bbTbody) bbTbody.innerHTML = bbRowsHtml;
@@ -2207,6 +2257,27 @@ function renderCommissionVoucher() {
     document.getElementById('comm-bb-total-qty').innerText = totalBbQty.toLocaleString('th-TH');
     document.getElementById('comm-bb-total-amount').innerText = totalBbAmount.toLocaleString('th-TH');
     document.getElementById('comm-bb-total-comm').innerText = totalBbCommission.toLocaleString('th-TH');
+
+
+    // ==========================================
+    // การเปิด/ซ่อนตารางตามรูปแบบเอกสารที่เลือก
+    // ==========================================
+    if (docType === 'weekly') {
+        // รอบสัปดาห์: แสดงเฉพาะ ขายส่ง + รับซื้อ (ซ่อนตารางมือ 2 ออกไปเลย ไม่แทรก)
+        if (secWholesale) secWholesale.style.display = 'block';
+        if (secUsedPhone) secUsedPhone.style.display = 'none';
+        if (secBuyback) secBuyback.style.display = 'block';
+    } else if (docType === 'monthly') {
+        // รายเดือน: แสดงเฉพาะ ขายสด iPhone มือ 2 เท่านั้น
+        if (secWholesale) secWholesale.style.display = 'none';
+        if (secUsedPhone) secUsedPhone.style.display = 'block';
+        if (secBuyback) secBuyback.style.display = 'none';
+    } else if (docType === 'backoffice') {
+        // ทีมหลังบ้าน: แสดงเฉพาะ รายการขายส่ง
+        if (secWholesale) secWholesale.style.display = 'block';
+        if (secUsedPhone) secUsedPhone.style.display = 'none';
+        if (secBuyback) secBuyback.style.display = 'none';
+    }
 
 
     // ==========================================
@@ -2222,11 +2293,17 @@ function renderCommissionVoucher() {
     document.getElementById('comm-sum-bb-qty').innerText = totalBbQty.toLocaleString('th-TH');
     document.getElementById('comm-sum-bb-comm').innerText = totalBbCommission.toLocaleString('th-TH');
 
-    const grandTotalCommission = totalWsCommission + totalUsedCommission + totalBbCommission;
+    let grandTotalCommission = 0;
+    if (docType === 'weekly') {
+        grandTotalCommission = totalWsCommission + totalBbCommission;
+    } else if (docType === 'monthly') {
+        grandTotalCommission = totalUsedCommission;
+    } else {
+        grandTotalCommission = 0;
+    }
     document.getElementById('comm-sum-grand-total').innerText = grandTotalCommission.toLocaleString('th-TH');
 
     // กล่องทีมหลังบ้าน (ยอดขายส่งทั้งหมด x 30 บาท/เครื่อง)
-    // นับยอดขายส่งทั้งหมดในรอบวันที่ ไม่จำกัดพนักงาน
     const totalBackofficeWsQty = allSales.filter(item => {
         if (item.sheetName !== "Phone2") return false;
         const brandStr = (item.brand || '').toString().toLowerCase();
@@ -2250,15 +2327,45 @@ function renderCommissionVoucher() {
     // ปรับการแสดงผลกล่องสรุปตามประเภทเอกสาร
     const empBox = document.getElementById('comm-box-emp-summary');
     const boBox = document.getElementById('comm-box-bo-summary');
-    if (docType === 'backoffice') {
+
+    // แถวต่างๆ ในกล่องสรุปเซลส์
+    const rowWsQty = document.getElementById('comm-row-sum-ws-qty');
+    const rowWsComm = document.getElementById('comm-row-sum-ws-comm');
+    const rowUsedQty = document.getElementById('comm-row-sum-used-qty');
+    const rowUsedComm = document.getElementById('comm-row-sum-used-comm');
+    const rowBbQty = document.getElementById('comm-row-sum-bb-qty');
+    const rowBbComm = document.getElementById('comm-row-sum-bb-comm');
+
+    if (docType === 'weekly') {
+        if (empBox) empBox.style.display = 'block';
+        if (boBox) boBox.style.display = 'block';
+
+        // รอบสัปดาห์: แสดง ขายส่ง + รับซื้อ, ซ่อน ขายมือ 2
+        if (rowWsQty) rowWsQty.style.display = 'flex';
+        if (rowWsComm) rowWsComm.style.display = 'flex';
+        if (rowUsedQty) rowUsedQty.style.display = 'none';
+        if (rowUsedComm) rowUsedComm.style.display = 'none';
+        if (rowBbQty) rowBbQty.style.display = 'flex';
+        if (rowBbComm) rowBbComm.style.display = 'flex';
+
+    } else if (docType === 'monthly') {
+        if (empBox) empBox.style.display = 'block';
+        if (boBox) boBox.style.display = 'none'; // ซ่อนหลังบ้านในใบรายเดือน
+
+        // รายเดือน: แสดงเฉพาะ ขายมือ 2, ซ่อน ขายส่ง และ รับซื้อ
+        if (rowWsQty) rowWsQty.style.display = 'none';
+        if (rowWsComm) rowWsComm.style.display = 'none';
+        if (rowUsedQty) rowUsedQty.style.display = 'flex';
+        if (rowUsedComm) rowUsedComm.style.display = 'flex';
+        if (rowBbQty) rowBbQty.style.display = 'none';
+        if (rowBbComm) rowBbComm.style.display = 'none';
+
+    } else if (docType === 'backoffice') {
         if (empBox) empBox.style.display = 'none';
         if (boBox) {
             boBox.style.display = 'block';
             boBox.style.border = '2px solid #3b82f6';
         }
-    } else {
-        if (empBox) empBox.style.display = 'block';
-        if (boBox) boBox.style.display = 'block';
     }
 }
 
