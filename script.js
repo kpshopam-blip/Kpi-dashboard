@@ -1880,6 +1880,192 @@ function formatThaiDateDisplay(dateInput) {
     return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
 }
 
+// ==========================================
+// สถานะและตัวแปรจัดการการตัดออกไม่คิดค่าคอมมิชชัน
+// ==========================================
+let excludedCommissionMap = new Map(); // key -> { excludedQty, totalQty, reason, excludedAt }
+window.commAvailableItems = new Map();  // key -> item info for preview & restoring
+window.currentPendingExcludeKey = null;
+
+// เปิด Modal ระบุเหตุผลและการเลือกจำนวนเครื่องที่จะตัดออก
+function openExcludeModal(itemKey) {
+    const item = window.commAvailableItems.get(itemKey);
+    if (!item) return;
+
+    window.currentPendingExcludeKey = itemKey;
+    const previewEl = document.getElementById('exclude-modal-item-preview');
+    if (previewEl) {
+        previewEl.innerHTML = `
+            <div style="font-weight: 600; color: #0f172a; margin-bottom: 2px;">
+                ${item.desc || item.title}
+            </div>
+            <div style="font-size: 12px; color: #475569;">
+                ประเภท: <b>${item.type}</b> &nbsp;|&nbsp; 
+                จำนวนทั้งหมด: <b>${item.qty}</b> เครื่อง &nbsp;|&nbsp; 
+                ราคา/เครื่อง: <b>${(item.price || 0).toLocaleString('th-TH')}</b> บ. 
+                (ยอดรวมทั้งหมด ${(item.amount || 0).toLocaleString('th-TH')} บ.)
+            </div>
+            <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">
+                ลูกค้า: <b>${item.customer || '-'}</b> &nbsp;|&nbsp; วันที่: <b>${item.date || '-'}</b>
+            </div>
+        `;
+    }
+
+    // จัดการจำนวนเครื่องที่ต้องการตัดออก
+    const existing = excludedCommissionMap.get(itemKey);
+    const maxQty = item.qty || 1;
+    // ถ้าเคยตัดไว้ ให้ดึงค่านั้นขึ้นมา ถ้ายังไม่เคยตัด ค่าเริ่มต้นเป็น 1 เครื่อง
+    const defaultQty = existing ? existing.excludedQty : (maxQty > 1 ? 1 : 1);
+
+    const qtyInput = document.getElementById('exclude-qty-input');
+    if (qtyInput) {
+        qtyInput.min = 1;
+        qtyInput.max = maxQty;
+        qtyInput.value = defaultQty;
+    }
+
+    const totalDisplay = document.getElementById('exclude-qty-total-display');
+    if (totalDisplay) totalDisplay.innerText = maxQty;
+
+    updateExcludeQtyCalculation();
+
+    // ดึงเหตุผลเดิม หรือล้างค่า
+    const reasonInput = document.getElementById('exclude-reason-input');
+    if (reasonInput) {
+        reasonInput.value = existing ? existing.reason : '';
+    }
+
+    // รีเซ็ต active pills
+    const pills = document.querySelectorAll('.reason-pill');
+    pills.forEach(p => {
+        if (existing && p.textContent.includes(existing.reason)) {
+            p.classList.add('active');
+        } else {
+            p.classList.remove('active');
+        }
+    });
+
+    const dialog = document.getElementById('comm-exclude-modal');
+    if (dialog) {
+        if (typeof dialog.showModal === 'function') {
+            dialog.showModal();
+        } else {
+            dialog.setAttribute('open', '');
+        }
+    }
+}
+
+// ปรับจำนวนเครื่องที่ต้องการตัดออกด้วยปุ่ม + / -
+function changeExcludeQtyStep(delta) {
+    const item = window.commAvailableItems.get(window.currentPendingExcludeKey);
+    const maxQty = item ? item.qty : 1;
+    const qtyInput = document.getElementById('exclude-qty-input');
+    if (!qtyInput) return;
+
+    let curVal = parseInt(qtyInput.value) || 1;
+    let nextVal = curVal + delta;
+    if (nextVal < 1) nextVal = 1;
+    if (nextVal > maxQty) nextVal = maxQty;
+
+    qtyInput.value = nextVal;
+    updateExcludeQtyCalculation();
+}
+
+// คำนวณจำนวนเครื่องคงเหลือที่ยังได้รับค่าคอม
+function updateExcludeQtyCalculation() {
+    const item = window.commAvailableItems.get(window.currentPendingExcludeKey);
+    const maxQty = item ? item.qty : 1;
+    const qtyInput = document.getElementById('exclude-qty-input');
+    if (!qtyInput) return;
+
+    let curVal = parseInt(qtyInput.value) || 1;
+    if (curVal < 1) curVal = 1;
+    if (curVal > maxQty) curVal = maxQty;
+    qtyInput.value = curVal;
+
+    const remaining = maxQty - curVal;
+    const remainEl = document.getElementById('exclude-qty-remain-display');
+    if (remainEl) {
+        remainEl.innerText = remaining;
+        remainEl.className = remaining > 0 ? 'text-green font-bold' : 'text-red font-bold';
+    }
+}
+
+// เลือกเหตุผลสำเร็จรูป
+function selectQuickReason(reasonText) {
+    const reasonInput = document.getElementById('exclude-reason-input');
+    if (reasonInput) {
+        reasonInput.value = reasonText;
+        reasonInput.focus();
+    }
+
+    const pills = document.querySelectorAll('.reason-pill');
+    pills.forEach(p => {
+        if (p.textContent.includes(reasonText.replace('🏷️ ', '').replace('🤝 ', '').replace('📉 ', '').replace('🔄 ', '').replace('❌ ', '').replace('⚠️ ', ''))) {
+            p.classList.add('active');
+        } else {
+            p.classList.remove('active');
+        }
+    });
+}
+
+// ยืนยันการตัดออกตามจำนวนเครื่องที่เลือก
+function confirmExcludeItem() {
+    if (!window.currentPendingExcludeKey) return;
+    const item = window.commAvailableItems.get(window.currentPendingExcludeKey);
+    const maxQty = item ? item.qty : 1;
+
+    const qtyInput = document.getElementById('exclude-qty-input');
+    let excludedQty = parseInt(qtyInput ? qtyInput.value : 1) || 1;
+    if (excludedQty < 1) excludedQty = 1;
+    if (excludedQty > maxQty) excludedQty = maxQty;
+
+    const reasonInput = document.getElementById('exclude-reason-input');
+    const reason = (reasonInput && reasonInput.value.trim()) 
+        ? reasonInput.value.trim() 
+        : 'ตกลงไม่คิดค่าคอมมิชชัน';
+
+    excludedCommissionMap.set(window.currentPendingExcludeKey, {
+        excludedQty: excludedQty,
+        totalQty: maxQty,
+        reason: reason,
+        excludedAt: Date.now()
+    });
+
+    closeExcludeModal();
+    renderCommissionVoucher();
+}
+
+// ปิด Modal
+function closeExcludeModal() {
+    window.currentPendingExcludeKey = null;
+    const dialog = document.getElementById('comm-exclude-modal');
+    if (dialog) {
+        if (typeof dialog.close === 'function') {
+            dialog.close();
+        } else {
+            dialog.removeAttribute('open');
+        }
+    }
+}
+
+// คืนค่ารายการที่ตัดออก (นำกลับมาคิดค่าคอมมิชชันเต็มจำนวน)
+function restoreExcludedItem(itemKey) {
+    if (excludedCommissionMap.has(itemKey)) {
+        excludedCommissionMap.delete(itemKey);
+        renderCommissionVoucher();
+    }
+}
+
+// คืนค่ารายการที่ตัดออกทั้งหมด
+function resetAllExcludedItems() {
+    if (excludedCommissionMap.size === 0) return;
+    if (confirm("ต้องการคืนค่ารายการที่ตัดออกทั้งหมดกลับมาคำนวณค่าคอมมิชชันตามเดิมหรือไม่?")) {
+        excludedCommissionMap.clear();
+        renderCommissionVoucher();
+    }
+}
+
 // ฟังก์ชันประมวลผลและสร้างเอกสารสรุปเบิกจ่ายค่าคอมมิชชัน
 function renderCommissionVoucher() {
     const docTypeSelect = document.getElementById('comm-doc-type');
@@ -2027,10 +2213,14 @@ function renderCommissionVoucher() {
         return str.replace(/^\/+/, '').trim() || '-';
     };
 
-    // อ้างอิง Element ของตารางทั้ง 3 ส่วน
+    // อ้างอิง Element ของตารางทั้ง 4 ส่วน
     const secWholesale = document.getElementById('comm-sec-wholesale');
     const secUsedPhone = document.getElementById('comm-sec-usedphone');
     const secBuyback = document.getElementById('comm-sec-buyback');
+    const secExcluded = document.getElementById('comm-sec-excluded');
+
+    // รายการที่ตัดออกที่รวบรวมเพื่อนำไปแสดงในตารางที่ 4
+    const excludedRowsToRender = [];
 
     // ==========================================
     // ตารางที่ 1: รายการขายเครื่องราคาส่ง (สีฟ้า)
@@ -2064,7 +2254,8 @@ function renderCommissionVoucher() {
                 price: price,
                 qty: 1,
                 customer: customer,
-                payment: payment
+                payment: payment,
+                groupKey: groupKey
             });
         } else {
             wsGroupMap.get(groupKey).qty += 1;
@@ -2072,35 +2263,95 @@ function renderCommissionVoucher() {
     });
 
     let wsRowsHtml = '';
+    let wsRenderedCount = 0;
+
     wsGroupMap.forEach(grp => {
         const docNum = getDocNumber(grp.saleId);
-        const rowAmount = grp.price * grp.qty;
-        // ค่าคอมมิชชันขายส่ง: เซลส์ผู้ขายได้รับ 70 บาท / เครื่อง
-        const comm = (docType === 'backoffice') ? 0 : (grp.qty * 70);
+        const itemKey = `ws_${grp.groupKey}`;
 
-        totalWsQty += grp.qty;
-        totalWsAmount += rowAmount;
-        totalWsCommission += comm;
+        // ลงทะเบียนใน Available Items Registry (เก็บจำนวนเต็มของแถวนั้นเสมอ)
+        window.commAvailableItems.set(itemKey, {
+            key: itemKey,
+            docNum: docNum,
+            date: grp.date,
+            type: 'ขายส่ง',
+            desc: `${grp.modelName} ${grp.capacity} (${grp.origin})`,
+            qty: grp.qty,
+            price: grp.price,
+            amount: grp.price * grp.qty,
+            customer: grp.customer,
+            comm: (docType === 'backoffice') ? 0 : (grp.qty * 70)
+        });
 
-        wsRowsHtml += `
-            <tr>
-                <td class="text-center">${docNum}</td>
-                <td class="text-center">${grp.date}</td>
-                <td>${grp.modelName}</td>
-                <td class="text-center">${grp.capacity}</td>
-                <td class="text-center">${grp.origin}</td>
-                <td class="text-center font-bold">${grp.qty}</td>
-                <td class="text-right">${grp.price.toLocaleString('th-TH')}</td>
-                <td class="text-right">${rowAmount.toLocaleString('th-TH')}</td>
-                <td>${grp.customer}</td>
-                <td class="text-right font-bold">${comm > 0 ? comm.toLocaleString('th-TH') : '-'}</td>
-                <td class="text-center">${grp.payment}</td>
-            </tr>
-        `;
+        // ตรวจสอบการตัดออก (รองรับทั้งตัดทั้งหมดและตัดบางเครื่อง)
+        const excInfo = excludedCommissionMap.get(itemKey);
+        const excQty = excInfo ? Math.min(excInfo.excludedQty, grp.qty) : 0;
+        const paidQty = grp.qty - excQty;
+
+        // ถ้ามีการตัดออกบางส่วนหรือทั้งหมด -> ส่งเข้าตารางรายการที่ตัดออก (ตารางที่ 4)
+        if (excQty > 0) {
+            excludedRowsToRender.push({
+                key: itemKey,
+                docNum: docNum,
+                date: grp.date,
+                type: 'ขายส่ง',
+                desc: `${grp.modelName} ${grp.capacity} (${grp.origin})`,
+                qty: excQty,
+                totalQty: grp.qty,
+                price: grp.price,
+                amount: grp.price * excQty,
+                customer: grp.customer,
+                reason: excInfo.reason
+            });
+        }
+
+        // ถ้ายังมีจำนวนที่ได้รับค่าคอมมิชชัน (> 0) -> แสดงในตารางหลัก
+        if (paidQty > 0) {
+            const paidRowAmount = grp.price * paidQty;
+            const paidComm = (docType === 'backoffice') ? 0 : (paidQty * 70);
+
+            totalWsQty += paidQty;
+            totalWsAmount += paidRowAmount;
+            totalWsCommission += paidComm;
+            wsRenderedCount++;
+
+            // ปุ่ม Action: ถ้าตัดบางส่วนแสดงปุ่มส้ม "ตัดแล้ว X/Total" ถ้ายังไม่ตัดแสดงปุ่มแดง "ตัดออก"
+            const actionBtnHtml = (excQty > 0)
+                ? `<button type="button" class="btn-row-action btn-row-partial" onclick="openExcludeModal('${itemKey}')" title="ปรับจำนวนตัดออก (ตัดแล้ว ${excQty} จากทั้งหมด ${grp.qty} เครื่อง)">
+                       <i class="fa-solid fa-pen-to-square"></i> ตัดแล้ว ${excQty}/${grp.qty}
+                   </button>`
+                : `<button type="button" class="btn-row-action btn-row-exclude" onclick="openExcludeModal('${itemKey}')" title="ตัดออกไม่จ่ายค่าคอม">
+                       <i class="fa-solid fa-ban"></i> ตัดออก
+                   </button>`;
+
+            // การแสดงจำนวนเครื่อง: ถ้าตัดบางส่วน แสดงจำนวนที่คิดค่าคอม พร้อมระบุจำนวนเต็มเดิม
+            const qtyDisplayHtml = (excQty > 0)
+                ? `<span class="text-green font-bold">${paidQty}</span> <span style="font-size: 11px; color: #64748b;">(จาก ${grp.qty})</span>`
+                : `<span class="font-bold">${paidQty}</span>`;
+
+            wsRowsHtml += `
+                <tr>
+                    <td class="text-center">${docNum}</td>
+                    <td class="text-center">${grp.date}</td>
+                    <td>${grp.modelName}</td>
+                    <td class="text-center">${grp.capacity}</td>
+                    <td class="text-center">${grp.origin}</td>
+                    <td class="text-center">${qtyDisplayHtml}</td>
+                    <td class="text-right">${grp.price.toLocaleString('th-TH')}</td>
+                    <td class="text-right">${paidRowAmount.toLocaleString('th-TH')}</td>
+                    <td>${grp.customer}</td>
+                    <td class="text-right font-bold">${paidComm > 0 ? paidComm.toLocaleString('th-TH') : '-'}</td>
+                    <td class="text-center">${grp.payment}</td>
+                    <td class="text-center no-print">
+                        ${actionBtnHtml}
+                    </td>
+                </tr>
+            `;
+        }
     });
 
-    if (wsGroupMap.size === 0) {
-        wsRowsHtml = `<tr><td colspan="11" class="text-center" style="color: #94a3b8; padding: 12px;">- ไม่มีรายการขายราคาส่ง -</td></tr>`;
+    if (wsRenderedCount === 0) {
+        wsRowsHtml = `<tr><td colspan="12" class="text-center" style="color: #94a3b8; padding: 12px;">- ไม่มีรายการขายราคาส่ง (หรือถูกตัดออกทั้งหมด) -</td></tr>`;
     }
     if (wsTbody) wsTbody.innerHTML = wsRowsHtml;
 
@@ -2116,9 +2367,6 @@ function renderCommissionVoucher() {
     let totalUsedQty = 0;
     let totalUsedAmount = 0;
     let totalUsedCommission = 0;
-
-    // เช็คเงื่อนไข: หากเป็นรายเดือน ต้องขายได้ >= 5 เครื่องขึ้นไป จึงจะได้ค่าคอม
-    const meetsUsedTarget = (usedPhoneItems.length >= 5);
 
     // จัดกลุ่มรายการขาย iPhone มือ 2
     const usedGroupMap = new Map();
@@ -2144,18 +2392,32 @@ function renderCommissionVoucher() {
                 price: price,
                 qty: 1,
                 customer: customer,
-                payment: payType
+                payment: payType,
+                groupKey: groupKey
             });
         } else {
             usedGroupMap.get(groupKey).qty += 1;
         }
     });
 
+    // นับจำนวนเครื่องที่ยังจ่ายคอมมิชชันเพื่อเช็คเกณฑ์เป้า 5 เครื่อง (นับเฉพาะ paidQty)
+    let activeUsedCount = 0;
+    usedGroupMap.forEach(grp => {
+        const itemKey = `used_${grp.groupKey}`;
+        const excInfo = excludedCommissionMap.get(itemKey);
+        const excQty = excInfo ? Math.min(excInfo.excludedQty, grp.qty) : 0;
+        const paidQty = grp.qty - excQty;
+        activeUsedCount += paidQty;
+    });
+    const meetsUsedTarget = (activeUsedCount >= 5);
+
     let usedRowsHtml = '';
+    let usedRenderedCount = 0;
+
     if (docType === 'monthly') {
         usedGroupMap.forEach(grp => {
             const docNum = getDocNumber(grp.saleId);
-            const rowAmount = grp.price * grp.qty;
+            const itemKey = `used_${grp.groupKey}`;
             
             // อัตราค่าคอมมิชชันตามช่วงราคาต่อเครื่อง (เฉพาะเมื่อผ่านเป้า 5 เครื่อง)
             let unitComm = 0;
@@ -2164,33 +2426,90 @@ function renderCommissionVoucher() {
                 else if (grp.price >= 15000) unitComm = 200;
                 else if (grp.price >= 10000) unitComm = 100;
             }
-            const rowComm = unitComm * grp.qty;
 
-            totalUsedQty += grp.qty;
-            totalUsedAmount += rowAmount;
-            totalUsedCommission += rowComm;
+            // ลงทะเบียน Registry
+            window.commAvailableItems.set(itemKey, {
+                key: itemKey,
+                docNum: docNum,
+                date: grp.date,
+                type: 'ขายสด iPhone มือ 2',
+                desc: `${grp.modelName} ${grp.capacity} (${grp.origin})`,
+                qty: grp.qty,
+                price: grp.price,
+                amount: grp.price * grp.qty,
+                customer: grp.customer,
+                comm: unitComm * grp.qty
+            });
 
-            usedRowsHtml += `
-                <tr>
-                    <td class="text-center">${docNum}</td>
-                    <td class="text-center">${grp.date}</td>
-                    <td>${grp.modelName}</td>
-                    <td class="text-center">${grp.capacity}</td>
-                    <td class="text-center">${grp.origin}</td>
-                    <td class="text-center font-bold">${grp.qty}</td>
-                    <td class="text-right">${grp.price.toLocaleString('th-TH')}</td>
-                    <td class="text-right">${rowAmount.toLocaleString('th-TH')}</td>
-                    <td>${grp.customer}</td>
-                    <td class="text-center">${grp.payment}</td>
-                    <td class="text-right font-bold">${rowComm > 0 ? rowComm.toLocaleString('th-TH') : '0'}</td>
-                </tr>
-            `;
+            // ตรวจสอบการตัดออก
+            const excInfo = excludedCommissionMap.get(itemKey);
+            const excQty = excInfo ? Math.min(excInfo.excludedQty, grp.qty) : 0;
+            const paidQty = grp.qty - excQty;
+
+            // ถ้ามีการตัดออกบางส่วนหรือทั้งหมด -> ส่งเข้าตารางที่ 4
+            if (excQty > 0) {
+                excludedRowsToRender.push({
+                    key: itemKey,
+                    docNum: docNum,
+                    date: grp.date,
+                    type: 'ขายสด iPhone มือ 2',
+                    desc: `${grp.modelName} ${grp.capacity} (${grp.origin})`,
+                    qty: excQty,
+                    totalQty: grp.qty,
+                    price: grp.price,
+                    amount: grp.price * excQty,
+                    customer: grp.customer,
+                    reason: excInfo.reason
+                });
+            }
+
+            // ถ้ายังมีจำนวนที่จ่ายค่าคอมมิชชัน
+            if (paidQty > 0) {
+                const paidRowAmount = grp.price * paidQty;
+                const paidRowComm = unitComm * paidQty;
+
+                totalUsedQty += paidQty;
+                totalUsedAmount += paidRowAmount;
+                totalUsedCommission += paidRowComm;
+                usedRenderedCount++;
+
+                const actionBtnHtml = (excQty > 0)
+                    ? `<button type="button" class="btn-row-action btn-row-partial" onclick="openExcludeModal('${itemKey}')" title="ปรับจำนวนตัดออก (ตัดออกแล้ว ${excQty} จากทั้งหมด ${grp.qty} เครื่อง)">
+                           <i class="fa-solid fa-pen-to-square"></i> ตัดแล้ว ${excQty}/${grp.qty}
+                       </button>`
+                    : `<button type="button" class="btn-row-action btn-row-exclude" onclick="openExcludeModal('${itemKey}')" title="ตัดออกไม่จ่ายค่าคอม">
+                           <i class="fa-solid fa-ban"></i> ตัดออก
+                       </button>`;
+
+                const qtyDisplayHtml = (excQty > 0)
+                    ? `<span class="text-green font-bold">${paidQty}</span> <span style="font-size: 11px; color: #64748b;">(จาก ${grp.qty})</span>`
+                    : `<span class="font-bold">${paidQty}</span>`;
+
+                usedRowsHtml += `
+                    <tr>
+                        <td class="text-center">${docNum}</td>
+                        <td class="text-center">${grp.date}</td>
+                        <td>${grp.modelName}</td>
+                        <td class="text-center">${grp.capacity}</td>
+                        <td class="text-center">${grp.origin}</td>
+                        <td class="text-center">${qtyDisplayHtml}</td>
+                        <td class="text-right">${grp.price.toLocaleString('th-TH')}</td>
+                        <td class="text-right">${paidRowAmount.toLocaleString('th-TH')}</td>
+                        <td>${grp.customer}</td>
+                        <td class="text-center">${grp.payment}</td>
+                        <td class="text-right font-bold">${paidRowComm > 0 ? paidRowComm.toLocaleString('th-TH') : '0'}</td>
+                        <td class="text-center no-print">
+                            ${actionBtnHtml}
+                        </td>
+                    </tr>
+                `;
+            }
         });
 
-        if (usedGroupMap.size === 0) {
-            usedRowsHtml = `<tr><td colspan="11" class="text-center" style="color: #94a3b8; padding: 12px;">- ไม่มีรายการขายสด iPhone มือ 2 -</td></tr>`;
+        if (usedRenderedCount === 0) {
+            usedRowsHtml = `<tr><td colspan="12" class="text-center" style="color: #94a3b8; padding: 12px;">- ไม่มีรายการขายสด iPhone มือ 2 (หรือถูกตัดออกทั้งหมด) -</td></tr>`;
         } else if (!meetsUsedTarget) {
-            usedRowsHtml += `<tr><td colspan="11" class="text-center" style="color: #dc2626; background: #fff1f2; font-weight: 600; padding: 8px;">⚠️ ขายได้รวม ${totalUsedQty} เครื่อง (ไม่ถึงเกณฑ์ขั้นต่ำ 5 เครื่อง/เดือน จึงยังไม่ได้รับค่าคอมมิชชัน)</td></tr>`;
+            usedRowsHtml += `<tr><td colspan="12" class="text-center" style="color: #dc2626; background: #fff1f2; font-weight: 600; padding: 8px;">⚠️ ขายได้รวม ${totalUsedQty} เครื่อง (ไม่ถึงเกณฑ์ขั้นต่ำ 5 เครื่อง/เดือน จึงยังไม่ได้รับค่าคอมมิชชัน)</td></tr>`;
         }
     }
 
@@ -2208,6 +2527,7 @@ function renderCommissionVoucher() {
     let totalBbQty = 0;
     let totalBbAmount = 0;
     let totalBbCommission = 0;
+    let bbRenderedCount = 0;
 
     let bbRowsHtml = '';
     if (docType === 'weekly') {
@@ -2227,36 +2547,140 @@ function renderCommissionVoucher() {
             else if (price >= 15000) comm = 200;
             else if (price >= 10000) comm = 100;
 
-            totalBbQty += qty;
-            totalBbAmount += rowAmount;
-            totalBbCommission += comm;
+            const itemKey = `bb_${item.buybackId || (idx + '_' + item.date + '_' + item.model + '_' + price)}`;
 
-            bbRowsHtml += `
-                <tr>
-                    <td class="text-center">${docNum}</td>
-                    <td class="text-center">${dateStr}</td>
-                    <td>${modelName}</td>
-                    <td class="text-center">${cap}</td>
-                    <td class="text-center">${colorModel}</td>
-                    <td class="text-center">${qty}</td>
-                    <td class="text-right">${price.toLocaleString('th-TH')}</td>
-                    <td class="text-right">${rowAmount.toLocaleString('th-TH')}</td>
-                    <td>ลูกค้าหน้าร้าน</td>
-                    <td class="text-right font-bold">${comm > 0 ? comm.toLocaleString('th-TH') : '0'}</td>
-                    <td class="text-center">รับซื้อ</td>
-                </tr>
-            `;
+            // ลงทะเบียน Registry
+            window.commAvailableItems.set(itemKey, {
+                key: itemKey,
+                docNum: docNum,
+                date: dateStr,
+                type: 'รับซื้อเครื่อง',
+                desc: `${modelName} ${cap} (${colorModel})`,
+                qty: qty,
+                price: price,
+                amount: rowAmount,
+                customer: 'ลูกค้าหน้าร้าน',
+                comm: comm
+            });
+
+            // ตรวจสอบการตัดออก
+            const excInfo = excludedCommissionMap.get(itemKey);
+            const excQty = excInfo ? Math.min(excInfo.excludedQty, qty) : 0;
+            const paidQty = qty - excQty;
+
+            if (excQty > 0) {
+                excludedRowsToRender.push({
+                    key: itemKey,
+                    docNum: docNum,
+                    date: dateStr,
+                    type: 'รับซื้อเครื่อง',
+                    desc: `${modelName} ${cap} (${colorModel})`,
+                    qty: excQty,
+                    totalQty: qty,
+                    price: price,
+                    amount: price * excQty,
+                    customer: 'ลูกค้าหน้าร้าน',
+                    reason: excInfo.reason
+                });
+            }
+
+            if (paidQty > 0) {
+                totalBbQty += paidQty;
+                totalBbAmount += price * paidQty;
+                totalBbCommission += comm * paidQty;
+                bbRenderedCount++;
+
+                bbRowsHtml += `
+                    <tr>
+                        <td class="text-center">${docNum}</td>
+                        <td class="text-center">${dateStr}</td>
+                        <td>${modelName}</td>
+                        <td class="text-center">${cap}</td>
+                        <td class="text-center">${colorModel}</td>
+                        <td class="text-center">${paidQty}</td>
+                        <td class="text-right">${price.toLocaleString('th-TH')}</td>
+                        <td class="text-right">${(price * paidQty).toLocaleString('th-TH')}</td>
+                        <td>ลูกค้าหน้าร้าน</td>
+                        <td class="text-right font-bold">${comm > 0 ? comm.toLocaleString('th-TH') : '0'}</td>
+                        <td class="text-center">รับซื้อ</td>
+                        <td class="text-center no-print">
+                            <button type="button" class="btn-row-action btn-row-exclude" onclick="openExcludeModal('${itemKey}')" title="ตัดออกไม่จ่ายค่าคอม">
+                                <i class="fa-solid fa-ban"></i> ตัดออก
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }
         });
     }
 
-    if (filteredBuybacks.length === 0 || docType !== 'weekly') {
-        bbRowsHtml = `<tr><td colspan="11" class="text-center" style="color: #94a3b8; padding: 12px;">- ไม่มีรายการรับซื้อเครื่อง -</td></tr>`;
+    if (bbRenderedCount === 0 || docType !== 'weekly') {
+        bbRowsHtml = `<tr><td colspan="12" class="text-center" style="color: #94a3b8; padding: 12px;">- ไม่มีรายการรับซื้อเครื่อง (หรือถูกตัดออกทั้งหมด) -</td></tr>`;
     }
     if (bbTbody) bbTbody.innerHTML = bbRowsHtml;
 
     document.getElementById('comm-bb-total-qty').innerText = totalBbQty.toLocaleString('th-TH');
     document.getElementById('comm-bb-total-amount').innerText = totalBbAmount.toLocaleString('th-TH');
     document.getElementById('comm-bb-total-comm').innerText = totalBbCommission.toLocaleString('th-TH');
+
+
+    // ==========================================
+    // ตารางที่ 4: รายการที่ไม่คิดค่าคอมมิชชัน (รายการที่ตัดออก)
+    // ==========================================
+    const excTbody = document.getElementById('comm-table-excluded-body');
+    let totalExcQty = 0;
+    let totalExcAmount = 0;
+    let excRowsHtml = '';
+
+    excludedRowsToRender.forEach((exc, index) => {
+        totalExcQty += exc.qty;
+        totalExcAmount += exc.amount;
+
+        const qtyDisplay = (exc.totalQty && exc.totalQty > exc.qty)
+            ? `<span class="font-bold text-red">${exc.qty}</span> <span style="font-size: 11px; color: #64748b;">(จาก ${exc.totalQty})</span>`
+            : `<span class="font-bold text-red">${exc.qty}</span>`;
+
+        excRowsHtml += `
+            <tr>
+                <td class="text-center font-bold">${String(index + 1).padStart(3, '0')}</td>
+                <td class="text-center">${exc.date}</td>
+                <td class="text-center"><span class="badge" style="background: #f1f5f9; color: #475569; font-size: 11px;">${exc.type}</span></td>
+                <td><b>${exc.desc}</b></td>
+                <td class="text-center">${qtyDisplay}</td>
+                <td class="text-right">${exc.price.toLocaleString('th-TH')}</td>
+                <td class="text-right">${exc.amount.toLocaleString('th-TH')}</td>
+                <td>${exc.customer}</td>
+                <td><span class="reason-tag"><i class="fa-solid fa-circle-info"></i> ${exc.reason}</span></td>
+                <td class="text-center no-print">
+                    <button type="button" class="btn-row-action btn-row-restore" onclick="restoreExcludedItem('${exc.key}')" title="นำกลับมาจ่ายค่าคอมมิชชันเต็มจำนวน">
+                        <i class="fa-solid fa-rotate-left"></i> คืนค่า
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    if (excTbody) excTbody.innerHTML = excRowsHtml;
+
+    const excTotalQtyEl = document.getElementById('comm-exc-total-qty');
+    const excTotalAmountEl = document.getElementById('comm-exc-total-amount');
+    if (excTotalQtyEl) excTotalQtyEl.innerText = `${totalExcQty.toLocaleString('th-TH')} เครื่อง`;
+    if (excTotalAmountEl) excTotalAmountEl.innerText = `${totalExcAmount.toLocaleString('th-TH')} บาท`;
+
+    // ควบคุมการแสดงผลตารางรายการที่ตัดออก: แสดงเฉพาะเมื่อมีรายการถูกตัดออก
+    if (secExcluded) {
+        secExcluded.style.display = (excludedRowsToRender.length > 0) ? 'block' : 'none';
+    }
+
+    // อัปเดตปุ่ม Reset ใน Filter Section
+    const resetExcBtn = document.getElementById('btn-comm-reset-exc');
+    const excCountBadge = document.getElementById('comm-exc-count-badge');
+    if (resetExcBtn) {
+        resetExcBtn.style.display = (excludedRowsToRender.length > 0) ? 'inline-flex' : 'none';
+    }
+    if (excCountBadge) {
+        excCountBadge.innerText = String(excludedRowsToRender.length);
+    }
 
 
     // ==========================================
@@ -2292,6 +2716,18 @@ function renderCommissionVoucher() {
 
     document.getElementById('comm-sum-bb-qty').innerText = totalBbQty.toLocaleString('th-TH');
     document.getElementById('comm-sum-bb-comm').innerText = totalBbCommission.toLocaleString('th-TH');
+
+    // สรุปยอดตัดออกในกล่องสรุปเซลส์
+    const sumExcRow = document.getElementById('comm-row-sum-excluded');
+    const sumExcQtyEl = document.getElementById('comm-sum-exc-qty');
+    if (sumExcRow && sumExcQtyEl) {
+        if (totalExcQty > 0) {
+            sumExcRow.style.display = 'flex';
+            sumExcQtyEl.innerText = totalExcQty.toLocaleString('th-TH');
+        } else {
+            sumExcRow.style.display = 'none';
+        }
+    }
 
     let grandTotalCommission = 0;
     if (docType === 'weekly') {

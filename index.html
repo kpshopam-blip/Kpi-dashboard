@@ -429,6 +429,9 @@
                 <button id="btn-comm-print" class="btn-primary" style="background: #27ae60;" onclick="printCommissionVoucher()">
                     <i class="fa-solid fa-print"></i> พิมพ์ / บันทึก PDF
                 </button>
+                <button id="btn-comm-reset-exc" class="btn-secondary no-print" onclick="resetAllExcludedItems()" title="คืนค่ารายการที่ตัดออกทั้งหมดกลับมาคำนวณตามปกติ" style="display: none; background: #64748b; color: #fff;">
+                    <i class="fa-solid fa-rotate-left"></i> คืนค่าที่ตัดออก (<span id="comm-exc-count-badge">0</span>)
+                </button>
             </section>
 
             <!-- A4 Document Simulation Container -->
@@ -472,6 +475,7 @@
                                         <th style="width: 13%;">ชื่อลูกค้า / ร้านค้า</th>
                                         <th style="width: 7%;">ค่าคอม</th>
                                         <th style="width: 7%;">หมายเหตุ</th>
+                                        <th class="no-print" style="width: 6%;">ตัดออก</th>
                                     </tr>
                                 </thead>
                                 <tbody id="comm-table-wholesale-body">
@@ -486,6 +490,7 @@
                                         <td></td>
                                         <td class="text-right font-bold" id="comm-ws-total-comm">0</td>
                                         <td></td>
+                                        <td class="no-print"></td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -512,6 +517,7 @@
                                         <th style="width: 12%;">ชื่อลูกค้า / ร้านค้า</th>
                                         <th style="width: 9%;">ประเภทการชำระ</th>
                                         <th style="width: 7%;">ค่าคอม</th>
+                                        <th class="no-print" style="width: 6%;">ตัดออก</th>
                                     </tr>
                                 </thead>
                                 <tbody id="comm-table-usedphone-body">
@@ -526,6 +532,7 @@
                                         <td></td>
                                         <td></td>
                                         <td class="text-right font-bold" id="comm-used-total-comm">0</td>
+                                        <td class="no-print"></td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -552,6 +559,7 @@
                                         <th style="width: 13%;">ชื่อลูกค้า / ร้านค้า</th>
                                         <th style="width: 7%;">ค่าคอม</th>
                                         <th style="width: 7%;">หมายเหตุ</th>
+                                        <th class="no-print" style="width: 6%;">ตัดออก</th>
                                     </tr>
                                 </thead>
                                 <tbody id="comm-table-buyback-body">
@@ -566,6 +574,45 @@
                                         <td></td>
                                         <td class="text-right font-bold" id="comm-bb-total-comm">0</td>
                                         <td></td>
+                                        <td class="no-print"></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- ตารางที่ 4: รายการที่ไม่คิดค่าคอมมิชชัน (รายการที่ตัดออก) (สีเทา-แดง/ส้ม) -->
+                    <div class="comm-table-card" id="comm-sec-excluded" style="display: none;">
+                        <div class="comm-sub-banner banner-excluded">
+                            <i class="fa-solid fa-ban"></i> รายการที่ไม่คิดค่าคอมมิชชัน (รายการที่ตัดออก)
+                        </div>
+                        <div class="comm-table-wrap">
+                            <table class="comm-doc-table table-excluded" id="comm-table-excluded">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 6%;">ลำดับ</th>
+                                        <th style="width: 9%;">วันที่</th>
+                                        <th style="width: 9%;">ประเภท</th>
+                                        <th style="width: 14%;">รุ่น / ความจุ / Model</th>
+                                        <th style="width: 6%;">จำนวน</th>
+                                        <th style="width: 8%;">ราคา/เครื่อง</th>
+                                        <th style="width: 9%;">ยอดรวม</th>
+                                        <th style="width: 12%;">ชื่อลูกค้า / ร้านค้า</th>
+                                        <th style="width: 21%;">เหตุผลที่ตัดออก (ไม่จ่ายค่าคอม)</th>
+                                        <th class="no-print" style="width: 6%;">จัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="comm-table-excluded-body">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                                <tfoot>
+                                    <tr class="comm-foot-row">
+                                        <td colspan="4" class="text-center font-bold">รวมรายการที่ตัดออก</td>
+                                        <td class="text-center font-bold text-red" id="comm-exc-total-qty">0</td>
+                                        <td class="text-center">-</td>
+                                        <td class="text-right font-bold text-red" id="comm-exc-total-amount">0</td>
+                                        <td colspan="2" class="text-center font-bold text-red">ไม่คิดค่าคอมมิชชัน</td>
+                                        <td class="no-print"></td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -604,6 +651,10 @@
                                 <div class="comm-sum-line-row" id="comm-row-sum-bb-comm">
                                     <span>รับค่าคอม</span>
                                     <span><b id="comm-sum-bb-comm">0</b> บาท</span>
+                                </div>
+                                <div class="comm-sum-line-row comm-row-excluded" id="comm-row-sum-excluded" style="display: none;">
+                                    <span class="text-red font-bold"><i class="fa-solid fa-ban"></i> ตัดออก (ไม่จ่ายคอม)</span>
+                                    <span class="text-red font-bold"><b id="comm-sum-exc-qty">0</b> เครื่อง</span>
                                 </div>
                                 <div class="comm-sum-line-row total-highlight">
                                     <span class="font-bold">รวมรับค่าคอม</span>
@@ -691,6 +742,55 @@
             </div>
         </div>
     </div>
+
+    <!-- Dialog Modal สำหรับระบุเหตุผลการตัดออกไม่คิดค่าคอม (no-print) -->
+    <dialog id="comm-exclude-modal" class="comm-modal-dialog no-print">
+        <div class="comm-modal-content">
+            <div class="comm-modal-header">
+                <h3><i class="fa-solid fa-ban text-red"></i> ระบุเหตุผลการตัดออก (ไม่จ่ายค่าคอม)</h3>
+                <button type="button" class="btn-modal-close" onclick="closeExcludeModal()">&times;</button>
+            </div>
+            <div class="comm-modal-body">
+                <div class="exclude-item-preview" id="exclude-modal-item-preview">
+                    <!-- ข้อมูลรายการสินค้าที่จะตัดออก -->
+                </div>
+
+                <!-- ส่วนเลือกจำนวนเครื่องที่ต้องการตัดออก -->
+                <div class="exclude-qty-control-box" id="exclude-qty-control-box" style="margin-bottom: 14px;">
+                    <label class="modal-label"><i class="fa-solid fa-calculator text-amber"></i> จำนวนเครื่องที่ต้องการตัดออก:</label>
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <div class="qty-stepper" style="display: inline-flex; align-items: center; border: 1.5px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #fff;">
+                            <button type="button" class="btn-qty-step" onclick="changeExcludeQtyStep(-1)" style="border: none; background: #f1f5f9; padding: 6px 14px; font-size: 16px; font-weight: bold; cursor: pointer; color: #334155;">-</button>
+                            <input type="number" id="exclude-qty-input" min="1" max="1" value="1" oninput="updateExcludeQtyCalculation()" style="width: 55px; border: none; text-align: center; font-weight: 700; font-size: 15px; color: #0f172a; padding: 6px 0; outline: none;">
+                            <button type="button" class="btn-qty-step" onclick="changeExcludeQtyStep(1)" style="border: none; background: #f1f5f9; padding: 6px 14px; font-size: 16px; font-weight: bold; cursor: pointer; color: #334155;">+</button>
+                        </div>
+                        <span style="font-size: 13px; color: #475569;" id="exclude-qty-summary-text">
+                            จากทั้งหมด <b id="exclude-qty-total-display">1</b> เครื่อง (เหลือรับค่าคอม <b id="exclude-qty-remain-display" class="text-green">0</b> เครื่อง)
+                        </span>
+                    </div>
+                </div>
+                
+                <label class="modal-label"><i class="fa-solid fa-bolt"></i> เลือกเหตุผลด่วน:</label>
+                <div class="quick-reason-pills" id="quick-reason-pills">
+                    <button type="button" class="reason-pill" onclick="selectQuickReason('ขายราคาพิเศษ / ต่ำกว่าราคามาตรฐาน')">🏷️ ขายราคาพิเศษ / ต่ำกว่ามาตรฐาน</button>
+                    <button type="button" class="reason-pill" onclick="selectQuickReason('ตกลงไม่คิดค่าคอมมิชชัน')">🤝 ตกลงไม่คิดค่าคอมมิชชัน</button>
+                    <button type="button" class="reason-pill" onclick="selectQuickReason('ขายต่ำกว่าทุน')">📉 ขายต่ำกว่าทุน</button>
+                    <button type="button" class="reason-pill" onclick="selectQuickReason('เครื่องเคลม / เปลี่ยนเครื่อง')">🔄 เครื่องเคลม / เปลี่ยนเครื่อง</button>
+                    <button type="button" class="reason-pill" onclick="selectQuickReason('ลูกค้ายกเลิก / คืนเครื่อง')">❌ ลูกค้ายกเลิก / คืนเครื่อง</button>
+                    <button type="button" class="reason-pill" onclick="selectQuickReason('รายการบันทึกผิด / ซ้ำซ้อน')">⚠️ บันทึกผิด / ซ้ำซ้อน</button>
+                </div>
+
+                <label for="exclude-reason-input" class="modal-label mt-2"><i class="fa-regular fa-comment-dots"></i> ระบุเหตุผล หรือรายละเอียดเพิ่มเติม:</label>
+                <textarea id="exclude-reason-input" rows="3" class="modal-textarea" placeholder="พิมพ์เหตุผลที่ตัดออกรายการนี้ เช่น ขายราคาพาร์ทเนอร์พิเศษ หรือระบุเหตุผลเอง..."></textarea>
+            </div>
+            <div class="comm-modal-footer">
+                <button type="button" class="btn-modal-cancel" onclick="closeExcludeModal()">ยกเลิก</button>
+                <button type="button" class="btn-modal-confirm" onclick="confirmExcludeItem()">
+                    <i class="fa-solid fa-check"></i> ยืนยันตัดออก (ไม่จ่ายคอม)
+                </button>
+            </div>
+        </div>
+    </dialog>
 
     <!-- Scripts -->
     <script src="script.js"></script>
