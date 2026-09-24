@@ -2118,29 +2118,72 @@ function renderCommissionVoucher() {
     const allSales = rawData || [];
     const allBuyback = window.buybackRawData || [];
 
-    // กรองสินค้า Phone2 ที่เป็น Apple ในช่วงวันที่
-    const phone2AppleSales = allSales.filter(item => {
-        if (item.sheetName !== "Phone2") return false;
+    // จำแนกรายการขายส่ง VS ขายสด iPhone มือ 2
+    const wholesaleItems = [];
+    const usedPhoneItems = [];
+
+    allSales.forEach(item => {
+        if (item.sheetName !== "Phone2") return;
         
         // เช็คแบรนด์ Apple
         const brandStr = (item.brand || '').toString().toLowerCase();
         const modelStr = (item.model || '').toString().toLowerCase();
         const isApple = brandStr.includes('apple') || modelStr.includes('iphone') || modelStr.includes('ipad');
-        if (!isApple) return false;
-
-        // เช็ควันที่
-        const d = parseTimestampToDate(item.date);
-        if (!d) return false;
-        const t = d.getTime();
-        if (t < startTimestamp || t > endTimestamp) return false;
+        if (!isApple) return;
 
         // เช็คพนักงาน (ถ้าเป็นหลังบ้าน ไม่กรองพนักงาน เพราะคิดยอดขายส่งรวมทั้งหมด)
         if (docType !== 'backoffice') {
             const empName = (item.employee || '').trim();
-            if (empName !== selectedEmp.trim()) return false;
+            if (empName !== selectedEmp.trim()) return;
         }
 
-        return true;
+        const saleType = (item.saleType || '').toString().trim();
+        const isPartnerSale = saleType.includes("ส่งร้านพาร์ทเนอร์");
+        const isCreditSale = saleType.includes("เงินเชื่อ");
+
+        if (isPartnerSale) {
+            if (isCreditSale) {
+                // กลุ่ม "ส่งร้านพาร์ทเนอร์ (เงินเชื่อ)"
+                // คอลัมน์ N คือวันที่รับยอดจากลูกค้า (paidDate)
+                // ถ้ามีวันที่ในคอลัมน์นี้ คือเค้าจ่ายแล้ว และถ้าวันที่ตรงกับช่วงวันที่เราเลือก ก็ทำจ่ายค่าคอมพนักงาน
+                if (item.paidDate) {
+                    const dPaid = parseTimestampToDate(item.paidDate);
+                    if (dPaid) {
+                        const tPaid = dPaid.getTime();
+                        if (tPaid >= startTimestamp && tPaid <= endTimestamp) {
+                            wholesaleItems.push(Object.assign({}, item, {
+                                isCreditPaid: true,
+                                displayDate: dPaid,
+                                effectiveDateStr: formatThaiDateDisplay(dPaid)
+                            }));
+                        }
+                    }
+                }
+            } else {
+                // กลุ่ม "ส่งร้านพาร์ทเนอร์ (เงินสด)"
+                const dSale = parseTimestampToDate(item.date);
+                if (dSale) {
+                    const tSale = dSale.getTime();
+                    if (tSale >= startTimestamp && tSale <= endTimestamp) {
+                        wholesaleItems.push(Object.assign({}, item, {
+                            isCreditPaid: false,
+                            displayDate: dSale,
+                            effectiveDateStr: formatThaiDateDisplay(dSale)
+                        }));
+                    }
+                }
+            }
+        } else {
+            // รายการขายอื่นๆ ใน Phone2 เช่น ขายสด iPhone มือ 2, สินเชื่อ IT4, Kfinance
+            // (ไม่รวมขายส่งเงินเชื่อที่ยังไม่ได้รับชำระ)
+            const dSale = parseTimestampToDate(item.date);
+            if (dSale) {
+                const tSale = dSale.getTime();
+                if (tSale >= startTimestamp && tSale <= endTimestamp) {
+                    usedPhoneItems.push(item);
+                }
+            }
+        }
     });
 
     // กรองรายการรับซื้อ (Apple)
@@ -2161,21 +2204,6 @@ function renderCommissionVoucher() {
         }
 
         return true;
-    });
-
-    // 3. จำแนกรายการขายส่ง VS ขายสด iPhone มือ 2
-    const wholesaleItems = [];
-    const usedPhoneItems = [];
-
-    phone2AppleSales.forEach(item => {
-        const saleType = (item.saleType || '').toString().trim();
-        // รายการขายส่ง: ต้องเป็น "ส่งร้านพาร์ทเนอร์ (เงินสด)" เท่านั้น (ไม่นับเงินเชื่อ)
-        if (saleType.includes("ส่งร้านพาร์ทเนอร์") && !saleType.includes("เงินเชื่อ")) {
-            wholesaleItems.push(item);
-        } else {
-            // รายการขายอื่นๆ ใน Phone2 เช่น ขายสด, สินเชื่อ IT4, Kfinance
-            usedPhoneItems.push(item);
-        }
     });
 
     // จัดการ Map ลำดับเอกสาร 001, 002, 003... ตาม SaleID
@@ -2239,8 +2267,10 @@ function renderCommissionVoucher() {
         const origin = formatModelOrigin(item.modelCode);
         const price = Number(item.price) || 0;
         const customer = (item.customerName || '-').trim();
-        const payment = (item.paymentMethod || 'เงินโอน').trim();
-        const dateStr = formatThaiDateDisplay(item.date);
+        const payment = item.isCreditPaid 
+            ? 'เงินเชื่อ (รับเงินแล้ว)' 
+            : (item.paymentMethod || 'เงินโอน').trim();
+        const dateStr = item.effectiveDateStr || formatThaiDateDisplay(item.date);
 
         const groupKey = `${sid}_${modelName}_${cap}_${origin}_${price}_${customer}_${payment}`;
 
@@ -2739,25 +2769,10 @@ function renderCommissionVoucher() {
     }
     document.getElementById('comm-sum-grand-total').innerText = grandTotalCommission.toLocaleString('th-TH');
 
-    // กล่องทีมหลังบ้าน (ยอดขายส่งทั้งหมด x 30 บาท/เครื่อง)
-    const totalBackofficeWsQty = allSales.filter(item => {
-        if (item.sheetName !== "Phone2") return false;
-        const brandStr = (item.brand || '').toString().toLowerCase();
-        const modelStr = (item.model || '').toString().toLowerCase();
-        const isApple = brandStr.includes('apple') || modelStr.includes('iphone') || modelStr.includes('ipad');
-        if (!isApple) return false;
-
-        const d = parseTimestampToDate(item.date);
-        if (!d) return false;
-        const t = d.getTime();
-        if (t < startTimestamp || t > endTimestamp) return false;
-
-        const saleType = (item.saleType || '').toString().trim();
-        return saleType.includes("ส่งร้านพาร์ทเนอร์") && !saleType.includes("เงินเชื่อ");
-    }).length;
-
-    const backofficeCommission = totalBackofficeWsQty * 30;
-    document.getElementById('comm-bo-sum-qty').innerText = totalBackofficeWsQty.toLocaleString('th-TH');
+    // กล่องทีมหลังบ้าน (แสดงจำนวนเท่ากับ ยอดรวมขายส่ง x 30 บาท/เครื่อง)
+    const boWsQty = totalWsQty;
+    const backofficeCommission = boWsQty * 30;
+    document.getElementById('comm-bo-sum-qty').innerText = boWsQty.toLocaleString('th-TH');
     document.getElementById('comm-bo-sum-comm').innerText = backofficeCommission.toLocaleString('th-TH');
 
     // ปรับการแสดงผลกล่องสรุปตามประเภทเอกสาร

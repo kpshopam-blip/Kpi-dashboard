@@ -1154,27 +1154,68 @@ tbody tr:hover {
 .comm-signature-col {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 14px;
     font-size: 11.5px;
 }
 
 .comm-sign-block, .comm-approval-block {
-    padding: 4px 6px;
+    padding: 2px 4px;
 }
 
-.sign-line {
+.sign-row-wrapper {
+    display: flex;
+    align-items: flex-start;
+    width: 100%;
+}
+
+.sign-label-left {
+    white-space: nowrap;
+    min-width: 32px;
+    padding-top: 1px;
+    color: #1e293b;
+    font-weight: 500;
+}
+
+.sign-center-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 0 4px;
+}
+
+.sign-dotted-line {
+    letter-spacing: 1.5px;
+    color: #64748b;
     margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    width: 100%;
+    text-align: center;
+    font-size: 12px;
+}
+
+.sign-label-right {
+    white-space: nowrap;
+    min-width: 60px;
+    text-align: right;
+    padding-top: 1px;
+    color: #1e293b;
+    font-weight: 500;
 }
 
 .sign-name {
     text-align: center;
-    color: #334155;
+    color: #1e293b;
     margin-bottom: 3px;
+    font-weight: 500;
 }
 
 .sign-date {
     text-align: center;
     color: #64748b;
+    letter-spacing: 0.5px;
 }
 
 .approval-choice {
