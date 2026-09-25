@@ -2066,6 +2066,17 @@ function resetAllExcludedItems() {
     }
 }
 
+// บันทึกหมายเหตุรายแถวในเอกสารสรุปค่าคอม
+window.commRowNotes = window.commRowNotes || {};
+function updateCommRowNote(itemKey, val) {
+    if (!window.commRowNotes) window.commRowNotes = {};
+    window.commRowNotes[itemKey] = val;
+    const printSpan = document.getElementById(`comm-note-print-${itemKey}`);
+    if (printSpan) {
+        printSpan.textContent = val;
+    }
+}
+
 // ฟังก์ชันประมวลผลและสร้างเอกสารสรุปเบิกจ่ายค่าคอมมิชชัน
 function renderCommissionVoucher() {
     const docTypeSelect = document.getElementById('comm-doc-type');
@@ -2359,6 +2370,9 @@ function renderCommissionVoucher() {
                 ? `<span class="text-green font-bold">${paidQty}</span> <span style="font-size: 11px; color: #64748b;">(จาก ${grp.qty})</span>`
                 : `<span class="font-bold">${paidQty}</span>`;
 
+            const savedWsNote = (window.commRowNotes && window.commRowNotes[itemKey]) ? window.commRowNotes[itemKey] : '';
+            const safeWsNoteVal = savedWsNote.replace(/"/g, '&quot;');
+
             wsRowsHtml += `
                 <tr>
                     <td class="text-center">${docNum}</td>
@@ -2372,6 +2386,10 @@ function renderCommissionVoucher() {
                     <td>${grp.customer}</td>
                     <td class="text-right font-bold">${paidComm > 0 ? paidComm.toLocaleString('th-TH') : '-'}</td>
                     <td class="text-center">${grp.payment}</td>
+                    <td class="comm-note-cell">
+                        <input type="text" class="comm-row-note-input" value="${safeWsNoteVal}" placeholder="พิมพ์หมายเหตุ..." oninput="updateCommRowNote('${itemKey}', this.value)" />
+                        <span class="comm-row-note-print" id="comm-note-print-${itemKey}">${savedWsNote}</span>
+                    </td>
                     <td class="text-center no-print">
                         ${actionBtnHtml}
                     </td>
@@ -2381,7 +2399,7 @@ function renderCommissionVoucher() {
     });
 
     if (wsRenderedCount === 0) {
-        wsRowsHtml = `<tr><td colspan="12" class="text-center" style="color: #94a3b8; padding: 12px;">- ไม่มีรายการขายราคาส่ง (หรือถูกตัดออกทั้งหมด) -</td></tr>`;
+        wsRowsHtml = `<tr><td colspan="13" class="text-center" style="color: #94a3b8; padding: 12px;">- ไม่มีรายการขายราคาส่ง (หรือถูกตัดออกทั้งหมด) -</td></tr>`;
     }
     if (wsTbody) wsTbody.innerHTML = wsRowsHtml;
 
@@ -2515,6 +2533,9 @@ function renderCommissionVoucher() {
                     ? `<span class="text-green font-bold">${paidQty}</span> <span style="font-size: 11px; color: #64748b;">(จาก ${grp.qty})</span>`
                     : `<span class="font-bold">${paidQty}</span>`;
 
+                const savedUsedNote = (window.commRowNotes && window.commRowNotes[itemKey]) ? window.commRowNotes[itemKey] : '';
+                const safeUsedNoteVal = savedUsedNote.replace(/"/g, '&quot;');
+
                 usedRowsHtml += `
                     <tr>
                         <td class="text-center">${docNum}</td>
@@ -2526,8 +2547,12 @@ function renderCommissionVoucher() {
                         <td class="text-right">${grp.price.toLocaleString('th-TH')}</td>
                         <td class="text-right">${paidRowAmount.toLocaleString('th-TH')}</td>
                         <td>${grp.customer}</td>
-                        <td class="text-center">${grp.payment}</td>
                         <td class="text-right font-bold">${paidRowComm > 0 ? paidRowComm.toLocaleString('th-TH') : '0'}</td>
+                        <td class="text-center">${grp.payment}</td>
+                        <td class="comm-note-cell">
+                            <input type="text" class="comm-row-note-input" value="${safeUsedNoteVal}" placeholder="พิมพ์หมายเหตุ..." oninput="updateCommRowNote('${itemKey}', this.value)" />
+                            <span class="comm-row-note-print" id="comm-note-print-${itemKey}">${savedUsedNote}</span>
+                        </td>
                         <td class="text-center no-print">
                             ${actionBtnHtml}
                         </td>
@@ -2537,9 +2562,9 @@ function renderCommissionVoucher() {
         });
 
         if (usedRenderedCount === 0) {
-            usedRowsHtml = `<tr><td colspan="12" class="text-center" style="color: #94a3b8; padding: 12px;">- ไม่มีรายการขายสด iPhone มือ 2 (หรือถูกตัดออกทั้งหมด) -</td></tr>`;
+            usedRowsHtml = `<tr><td colspan="13" class="text-center" style="color: #94a3b8; padding: 12px;">- ไม่มีรายการขายสด iPhone มือ 2 (หรือถูกตัดออกทั้งหมด) -</td></tr>`;
         } else if (!meetsUsedTarget) {
-            usedRowsHtml += `<tr><td colspan="12" class="text-center" style="color: #dc2626; background: #fff1f2; font-weight: 600; padding: 8px;">⚠️ ขายได้รวม ${totalUsedQty} เครื่อง (ไม่ถึงเกณฑ์ขั้นต่ำ 5 เครื่อง/เดือน จึงยังไม่ได้รับค่าคอมมิชชัน)</td></tr>`;
+            usedRowsHtml += `<tr><td colspan="13" class="text-center" style="color: #dc2626; background: #fff1f2; font-weight: 600; padding: 8px;">⚠️ ขายได้รวม ${totalUsedQty} เครื่อง (ไม่ถึงเกณฑ์ขั้นต่ำ 5 เครื่อง/เดือน จึงยังไม่ได้รับค่าคอมมิชชัน)</td></tr>`;
         }
     }
 
@@ -2620,6 +2645,9 @@ function renderCommissionVoucher() {
                 totalBbCommission += comm * paidQty;
                 bbRenderedCount++;
 
+                const savedBbNote = (window.commRowNotes && window.commRowNotes[itemKey]) ? window.commRowNotes[itemKey] : '';
+                const safeBbNoteVal = savedBbNote.replace(/"/g, '&quot;');
+
                 bbRowsHtml += `
                     <tr>
                         <td class="text-center">${docNum}</td>
@@ -2633,6 +2661,10 @@ function renderCommissionVoucher() {
                         <td>ลูกค้าหน้าร้าน</td>
                         <td class="text-right font-bold">${comm > 0 ? comm.toLocaleString('th-TH') : '0'}</td>
                         <td class="text-center">รับซื้อ</td>
+                        <td class="comm-note-cell">
+                            <input type="text" class="comm-row-note-input" value="${safeBbNoteVal}" placeholder="พิมพ์หมายเหตุ..." oninput="updateCommRowNote('${itemKey}', this.value)" />
+                            <span class="comm-row-note-print" id="comm-note-print-${itemKey}">${savedBbNote}</span>
+                        </td>
                         <td class="text-center no-print">
                             <button type="button" class="btn-row-action btn-row-exclude" onclick="openExcludeModal('${itemKey}')" title="ตัดออกไม่จ่ายค่าคอม">
                                 <i class="fa-solid fa-ban"></i> ตัดออก
@@ -2645,7 +2677,7 @@ function renderCommissionVoucher() {
     }
 
     if (bbRenderedCount === 0 || docType !== 'weekly') {
-        bbRowsHtml = `<tr><td colspan="12" class="text-center" style="color: #94a3b8; padding: 12px;">- ไม่มีรายการรับซื้อเครื่อง (หรือถูกตัดออกทั้งหมด) -</td></tr>`;
+        bbRowsHtml = `<tr><td colspan="13" class="text-center" style="color: #94a3b8; padding: 12px;">- ไม่มีรายการรับซื้อเครื่อง (หรือถูกตัดออกทั้งหมด) -</td></tr>`;
     }
     if (bbTbody) bbTbody.innerHTML = bbRowsHtml;
 

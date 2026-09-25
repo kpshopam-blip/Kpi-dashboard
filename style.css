@@ -1048,6 +1048,34 @@ tbody tr:hover {
     background-color: #fee2e2;
 }
 
+/* ช่องพิมพ์หมายเหตุในตารางสรุปค่าคอม */
+.comm-note-cell {
+    padding: 2px 3px !important;
+}
+
+.comm-row-note-input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 2px 4px;
+    font-size: 11px;
+    font-family: inherit;
+    background: #ffffff;
+    color: #1e293b;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.comm-row-note-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.comm-row-note-print {
+    display: none;
+}
+
 /* Footer Grid */
 .comm-doc-footer-grid {
     display: grid;
@@ -1327,12 +1355,26 @@ tbody tr:hover {
     }
 
     .comm-doc-table {
-        font-size: 10px !important;
+        font-size: 9px !important;
     }
 
     .comm-doc-table th, 
     .comm-doc-table td {
-        padding: 2.5px 4px !important;
+        padding: 2px 3px !important;
+        line-height: 1.25 !important;
+    }
+
+    .comm-row-note-input {
+        display: none !important;
+    }
+
+    .comm-row-note-print {
+        display: block !important;
+        font-size: 8.5px !important;
+        line-height: 1.2 !important;
+        color: #1e293b !important;
+        word-break: break-word !important;
+        white-space: normal !important;
     }
 
     .comm-doc-footer-grid {
