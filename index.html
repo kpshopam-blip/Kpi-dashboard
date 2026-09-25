@@ -434,6 +434,24 @@
                 </button>
             </section>
 
+            <!-- แผงกรอกรายการหักเงินค่าคอมมิชชั่นเพิ่มเติม (ซ่อนตอนพิมพ์) -->
+            <section class="comm-deduction-panel panel no-print" style="margin-bottom: 20px; background: #fffaf0; border: 1.5px dashed #f6ad55; padding: 12px 18px; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-weight: 600; color: #c05621; font-size: 13.5px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-receipt"></i> รายการหักเงินค่าคอมมิชชั่นเพิ่มเติม (เช่น หักค่าส่งเคลมสินค้า)
+                    </span>
+                    <button type="button" class="btn-secondary" onclick="addCommDeductionRow()" style="padding: 4px 10px; font-size: 12px; background: #feebc8; color: #9c4221; border: 1px solid #fbd38d; cursor: pointer; border-radius: 4px; display: inline-flex; align-items: center; gap: 5px;">
+                        <i class="fa-solid fa-plus"></i> เพิ่มรายการหัก
+                    </button>
+                </div>
+                <div id="comm-deduction-list">
+                    <!-- รายการหักจะถูกเรนเดอร์โดย JavaScript -->
+                </div>
+                <div id="comm-deduction-summary-text" style="font-size: 12.5px; color: #744210; margin-top: 8px; padding-top: 6px; border-top: 1px dashed #fbd38d; display: none;">
+                    <!-- ข้อความสรุปเฉลี่ยหัก -->
+                </div>
+            </section>
+
             <!-- A4 Document Simulation Container -->
             <div class="comm-paper-wrapper">
                 <div id="commission-paper" class="comm-paper-page">
@@ -662,9 +680,17 @@
                                     <span class="text-red font-bold"><i class="fa-solid fa-ban"></i> ตัดออก (ไม่จ่ายคอม)</span>
                                     <span class="text-red font-bold"><b id="comm-sum-exc-qty">0</b> เครื่อง</span>
                                 </div>
-                                <div class="comm-sum-line-row total-highlight">
+                                <div class="comm-sum-line-row total-highlight" id="comm-row-emp-gross">
                                     <span class="font-bold">รวมรับค่าคอม</span>
                                     <span class="font-bold"><b id="comm-sum-grand-total">0</b> บาท</span>
+                                </div>
+                                <div class="comm-sum-line-row comm-row-deduct" id="comm-row-emp-deduct" style="display: none;">
+                                    <span class="font-bold" id="comm-emp-deduct-label"><i class="fa-solid fa-minus"></i> หักค่าใช้จ่าย</span>
+                                    <span class="font-bold">-<b id="comm-emp-deduct-val">0</b> บาท</span>
+                                </div>
+                                <div class="comm-sum-line-row total-highlight net-highlight" id="comm-row-emp-net" style="display: none;">
+                                    <span class="font-bold">ยอดรับสุทธิ</span>
+                                    <span class="font-bold"><b id="comm-sum-emp-net">0</b> บาท</span>
                                 </div>
                             </div>
 
@@ -677,9 +703,17 @@
                                     <span>รวม</span>
                                     <span><b id="comm-bo-sum-qty">0</b> เครื่อง</span>
                                 </div>
-                                <div class="comm-sum-line-row total-highlight">
+                                <div class="comm-sum-line-row total-highlight" id="comm-row-bo-gross">
                                     <span>รับค่าคอม</span>
                                     <span><b id="comm-bo-sum-comm">0</b> บาท</span>
+                                </div>
+                                <div class="comm-sum-line-row comm-row-deduct" id="comm-row-bo-deduct" style="display: none;">
+                                    <span class="font-bold" id="comm-bo-deduct-label"><i class="fa-solid fa-minus"></i> หักค่าใช้จ่าย</span>
+                                    <span class="font-bold">-<b id="comm-bo-deduct-val">0</b> บาท</span>
+                                </div>
+                                <div class="comm-sum-line-row total-highlight net-highlight" id="comm-row-bo-net" style="display: none;">
+                                    <span class="font-bold">ยอดรับสุทธิ</span>
+                                    <span class="font-bold"><b id="comm-sum-bo-net">0</b> บาท</span>
                                 </div>
                             </div>
                         </div>

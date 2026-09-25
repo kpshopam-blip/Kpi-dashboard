@@ -1781,6 +1781,7 @@ function initCommissionModule() {
         isCommInitialized = true;
     }
 
+    renderCommDeductionInputs();
     renderCommissionVoucher();
 }
 
@@ -2849,6 +2850,203 @@ function renderCommissionVoucher() {
             boBox.style.display = 'block';
             boBox.style.border = '2px solid #3b82f6';
         }
+    }
+
+    // คำนวณและปรับใช้รายการหักเงินค่าคอมมิชชัน
+    applyCommissionDeductions(grandTotalCommission, backofficeCommission, docType);
+}
+
+// ==========================================
+// การจัดการรายการหักเงินค่าคอมมิชชันเพิ่มเติม
+// ==========================================
+window.commDeductions = window.commDeductions || [
+    { id: 1, title: '', amount: '' }
+];
+let commDeductionNextId = 2;
+
+// เรนเดอร์กล่องกรอกรายการหักเงินในแผงควบคุม
+function renderCommDeductionInputs() {
+    const container = document.getElementById('comm-deduction-list');
+    if (!container) return;
+
+    if (!window.commDeductions || window.commDeductions.length === 0) {
+        window.commDeductions = [{ id: commDeductionNextId++, title: '', amount: '' }];
+    }
+
+    let html = '';
+    window.commDeductions.forEach((item) => {
+        const canDelete = window.commDeductions.length > 1;
+        html += `
+            <div class="comm-deduct-row" id="comm-deduct-row-${item.id}" style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px; flex-wrap: wrap;">
+                <input type="text" 
+                       class="comm-deduct-title" 
+                       id="comm-deduct-title-${item.id}"
+                       placeholder="ชื่อรายการหัก เช่น หักค่าส่งเคลมสินค้า" 
+                       value="${(item.title || '').replace(/"/g, '&quot;')}" 
+                       oninput="handleCommDeductionChange(${item.id}, 'title', this.value)" 
+                       style="flex: 2; min-width: 220px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px;" />
+                <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 160px;">
+                    <span style="color: #64748b; font-size: 12.5px; white-space: nowrap;">ยอดหักรวม:</span>
+                    <input type="number" 
+                           min="0" 
+                           step="any" 
+                           class="comm-deduct-amount" 
+                           id="comm-deduct-amount-${item.id}"
+                           placeholder="0" 
+                           value="${item.amount !== undefined ? item.amount : ''}" 
+                           oninput="handleCommDeductionChange(${item.id}, 'amount', this.value)" 
+                           style="width: 100%; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; text-align: right;" />
+                    <span style="font-size: 12.5px; color: #64748b;">บาท</span>
+                </div>
+                ${canDelete ? `
+                    <button type="button" onclick="removeCommDeductionRow(${item.id})" style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 4px 6px; font-size: 14px;" title="ลบรายการนี้">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                ` : `
+                    <div style="width: 26px;"></div>
+                `}
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+    applyCommissionDeductions();
+}
+
+// เพิ่มแถวรายการหักเงินใหม่
+function addCommDeductionRow() {
+    window.commDeductions.push({
+        id: commDeductionNextId++,
+        title: '',
+        amount: ''
+    });
+    renderCommDeductionInputs();
+}
+
+// ลบแถวรายการหักเงิน
+function removeCommDeductionRow(id) {
+    window.commDeductions = window.commDeductions.filter(item => item.id !== id);
+    if (window.commDeductions.length === 0) {
+        window.commDeductions.push({ id: commDeductionNextId++, title: '', amount: '' });
+    }
+    renderCommDeductionInputs();
+}
+
+// รับค่าเมื่อมีการพิมพ์ในช่องรายการหักเงิน
+function handleCommDeductionChange(id, field, val) {
+    const target = window.commDeductions.find(item => item.id === id);
+    if (target) {
+        target[field] = val;
+    }
+    applyCommissionDeductions();
+}
+
+// คำนวณและอัปเดตยอดหักและยอดรับสุทธิลงในกล่องสรุป
+function applyCommissionDeductions(grossEmpComm, grossBoComm, docType) {
+    if (grossEmpComm === undefined) {
+        grossEmpComm = window._lastGrossEmpComm || 0;
+        grossBoComm = window._lastGrossBoComm || 0;
+        const docTypeSelect = document.getElementById('comm-doc-type');
+        docType = docTypeSelect ? docTypeSelect.value : 'weekly';
+    } else {
+        window._lastGrossEmpComm = grossEmpComm;
+        window._lastGrossBoComm = grossBoComm;
+    }
+
+    const formatNum = (n) => Number(n).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+
+    // รวมยอดหักทั้งหมด
+    let totalDeduct = 0;
+    const activeTitles = [];
+    (window.commDeductions || []).forEach(d => {
+        const amt = parseFloat(d.amount);
+        if (!isNaN(amt) && amt > 0) {
+            totalDeduct += amt;
+            const t = (d.title || '').trim() || 'ค่าใช้จ่าย';
+            activeTitles.push(t);
+        }
+    });
+
+    const sumTextEl = document.getElementById('comm-deduction-summary-text');
+    let empDeduct = 0;
+    let boDeduct = 0;
+
+    if (totalDeduct > 0) {
+        if (docType === 'weekly') {
+            // สรุปสัปดาห์: เฉลี่ยหัก เซลส์ 50% และ ทีมหลังบ้าน 50% เท่าๆ กัน
+            empDeduct = totalDeduct / 2;
+            boDeduct = totalDeduct / 2;
+            if (sumTextEl) {
+                sumTextEl.style.display = 'block';
+                sumTextEl.innerHTML = `<i class="fa-solid fa-calculator"></i> ยอดหักรวม <b>${formatNum(totalDeduct)}</b> บาท (เฉลี่ยหัก เซลส์: <b>${formatNum(empDeduct)}</b> บาท / ทีมหลังบ้าน: <b>${formatNum(boDeduct)}</b> บาท)`;
+            }
+        } else if (docType === 'monthly') {
+            // รายเดือน: หักจากเซลส์
+            empDeduct = totalDeduct;
+            boDeduct = 0;
+            if (sumTextEl) {
+                sumTextEl.style.display = 'block';
+                sumTextEl.innerHTML = `<i class="fa-solid fa-calculator"></i> ยอดหักรวม <b>${formatNum(totalDeduct)}</b> บาท (หักจากเซลส์ผู้ขาย)`;
+            }
+        } else {
+            // หลังบ้าน: หักหลังบ้าน
+            empDeduct = 0;
+            boDeduct = totalDeduct / 2;
+            if (sumTextEl) {
+                sumTextEl.style.display = 'block';
+                sumTextEl.innerHTML = `<i class="fa-solid fa-calculator"></i> ยอดหักรวม <b>${formatNum(totalDeduct)}</b> บาท (หักจากทีมหลังบ้าน)`;
+            }
+        }
+    } else {
+        if (sumTextEl) sumTextEl.style.display = 'none';
+    }
+
+    const netEmpComm = Math.max(0, grossEmpComm - empDeduct);
+    const netBoComm = Math.max(0, grossBoComm - boDeduct);
+
+    // กำหนดข้อความป้ายรายการหัก
+    let labelText = 'หักค่าใช้จ่าย';
+    if (activeTitles.length === 1) {
+        const rawT = activeTitles[0];
+        labelText = rawT.startsWith('หัก') ? rawT : `หัก ${rawT}`;
+    } else if (activeTitles.length > 1) {
+        labelText = `หักค่าใช้จ่าย (${activeTitles.length} รายการ)`;
+    }
+
+    // อัปเดตกล่องสรุปเซลส์
+    const empDeductRow = document.getElementById('comm-row-emp-deduct');
+    const empDeductLabel = document.getElementById('comm-emp-deduct-label');
+    const empDeductVal = document.getElementById('comm-emp-deduct-val');
+    const empNetRow = document.getElementById('comm-row-emp-net');
+    const empNetVal = document.getElementById('comm-sum-emp-net');
+
+    if (empDeduct > 0) {
+        if (empDeductRow) empDeductRow.style.display = 'flex';
+        if (empDeductLabel) empDeductLabel.innerHTML = `<i class="fa-solid fa-minus"></i> ${labelText}`;
+        if (empDeductVal) empDeductVal.innerText = formatNum(empDeduct);
+        if (empNetRow) empNetRow.style.display = 'flex';
+        if (empNetVal) empNetVal.innerText = formatNum(netEmpComm);
+    } else {
+        if (empDeductRow) empDeductRow.style.display = 'none';
+        if (empNetRow) empNetRow.style.display = 'none';
+    }
+
+    // อัปเดตกล่องสรุปหลังบ้าน
+    const boDeductRow = document.getElementById('comm-row-bo-deduct');
+    const boDeductLabel = document.getElementById('comm-bo-deduct-label');
+    const boDeductVal = document.getElementById('comm-bo-deduct-val');
+    const boNetRow = document.getElementById('comm-row-bo-net');
+    const boNetVal = document.getElementById('comm-sum-bo-net');
+
+    if (boDeduct > 0) {
+        if (boDeductRow) boDeductRow.style.display = 'flex';
+        if (boDeductLabel) boDeductLabel.innerHTML = `<i class="fa-solid fa-minus"></i> ${labelText}`;
+        if (boDeductVal) boDeductVal.innerText = formatNum(boDeduct);
+        if (boNetRow) boNetRow.style.display = 'flex';
+        if (boNetVal) boNetVal.innerText = formatNum(netBoComm);
+    } else {
+        if (boDeductRow) boDeductRow.style.display = 'none';
+        if (boNetRow) boNetRow.style.display = 'none';
     }
 }
 

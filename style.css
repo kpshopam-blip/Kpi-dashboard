@@ -1144,6 +1144,32 @@ tbody tr:hover {
     border-top: 1.5px solid #8ea9db;
 }
 
+/* แถวหักเงินค่าคอมมิชชัน */
+.comm-sum-line-row.comm-row-deduct {
+    background-color: #fef2f2;
+    color: #dc2626;
+    border-top: 1px dashed #fca5a5;
+    font-size: 11px;
+}
+
+/* แถวสรุปยอดรับสุทธิ */
+.comm-sum-line-row.net-highlight {
+    font-weight: 700;
+    font-size: 12px;
+}
+
+.comm-emp-sum-card .comm-sum-line-row.net-highlight {
+    background-color: #f0fdf4;
+    color: #15803d;
+    border-top: 1.5px solid #22c55e;
+}
+
+.comm-bo-sum-card .comm-sum-line-row.net-highlight {
+    background-color: #eff6ff;
+    color: #1d4ed8;
+    border-top: 1.5px solid #3b82f6;
+}
+
 /* Column 2: Rules */
 .comm-rules-col {
     padding: 4px 8px;
@@ -1385,6 +1411,27 @@ tbody tr:hover {
         width: 100% !important;
         max-width: 100% !important;
         box-sizing: border-box !important;
+    }
+
+    .comm-sum-line-row {
+        padding: 2px 4px !important;
+        font-size: 9px !important;
+    }
+
+    .comm-sum-line-row.total-highlight {
+        font-size: 9.5px !important;
+        padding: 2.5px 4px !important;
+    }
+
+    .comm-sum-line-row.comm-row-deduct {
+        background-color: #fff1f2 !important;
+        color: #b91c1c !important;
+        font-size: 9px !important;
+    }
+
+    .comm-sum-line-row.net-highlight {
+        font-size: 9.5px !important;
+        padding: 2.5px 4px !important;
     }
 
     .comm-signature-col {
