@@ -2973,12 +2973,12 @@ function applyCommissionDeductions(grossEmpComm, grossBoComm, docType) {
 
     if (totalDeduct > 0) {
         if (docType === 'weekly') {
-            // สรุปสัปดาห์: เฉลี่ยหัก เซลส์ 50% และ ทีมหลังบ้าน 50% เท่าๆ กัน
-            empDeduct = totalDeduct / 2;
-            boDeduct = totalDeduct / 2;
+            // สรุปสัปดาห์: หักเซลส์ 70% และ ทีมหลังบ้าน 30%
+            empDeduct = totalDeduct * 0.7;
+            boDeduct = totalDeduct * 0.3;
             if (sumTextEl) {
                 sumTextEl.style.display = 'block';
-                sumTextEl.innerHTML = `<i class="fa-solid fa-calculator"></i> ยอดหักรวม <b>${formatNum(totalDeduct)}</b> บาท (เฉลี่ยหัก เซลส์: <b>${formatNum(empDeduct)}</b> บาท / ทีมหลังบ้าน: <b>${formatNum(boDeduct)}</b> บาท)`;
+                sumTextEl.innerHTML = `<i class="fa-solid fa-calculator"></i> ยอดหักรวม <b>${formatNum(totalDeduct)}</b> บาท (หักเซลส์ 70%: <b>${formatNum(empDeduct)}</b> บาท / ทีมหลังบ้าน 30%: <b>${formatNum(boDeduct)}</b> บาท)`;
             }
         } else if (docType === 'monthly') {
             // รายเดือน: หักจากเซลส์
@@ -2989,12 +2989,12 @@ function applyCommissionDeductions(grossEmpComm, grossBoComm, docType) {
                 sumTextEl.innerHTML = `<i class="fa-solid fa-calculator"></i> ยอดหักรวม <b>${formatNum(totalDeduct)}</b> บาท (หักจากเซลส์ผู้ขาย)`;
             }
         } else {
-            // หลังบ้าน: หักหลังบ้าน
+            // หลังบ้าน: หักตามสัดส่วนหลังบ้าน 30%
             empDeduct = 0;
-            boDeduct = totalDeduct / 2;
+            boDeduct = totalDeduct * 0.3;
             if (sumTextEl) {
                 sumTextEl.style.display = 'block';
-                sumTextEl.innerHTML = `<i class="fa-solid fa-calculator"></i> ยอดหักรวม <b>${formatNum(totalDeduct)}</b> บาท (หักจากทีมหลังบ้าน)`;
+                sumTextEl.innerHTML = `<i class="fa-solid fa-calculator"></i> ยอดหักรวม <b>${formatNum(totalDeduct)}</b> บาท (หักทีมหลังบ้าน 30%: <b>${formatNum(boDeduct)}</b> บาท)`;
             }
         }
     } else {
@@ -3005,13 +3005,16 @@ function applyCommissionDeductions(grossEmpComm, grossBoComm, docType) {
     const netBoComm = Math.max(0, grossBoComm - boDeduct);
 
     // กำหนดข้อความป้ายรายการหัก
-    let labelText = 'หักค่าใช้จ่าย';
+    let baseLabelText = 'หักค่าใช้จ่าย';
     if (activeTitles.length === 1) {
         const rawT = activeTitles[0];
-        labelText = rawT.startsWith('หัก') ? rawT : `หัก ${rawT}`;
+        baseLabelText = rawT.startsWith('หัก') ? rawT : `หัก ${rawT}`;
     } else if (activeTitles.length > 1) {
-        labelText = `หักค่าใช้จ่าย (${activeTitles.length} รายการ)`;
+        baseLabelText = `หักค่าใช้จ่าย (${activeTitles.length} รายการ)`;
     }
+
+    const empLabelText = (docType === 'weekly') ? `${baseLabelText} (70%)` : baseLabelText;
+    const boLabelText = (docType === 'weekly' || docType === 'backoffice') ? `${baseLabelText} (30%)` : baseLabelText;
 
     // อัปเดตกล่องสรุปเซลส์
     const empDeductRow = document.getElementById('comm-row-emp-deduct');
@@ -3022,7 +3025,7 @@ function applyCommissionDeductions(grossEmpComm, grossBoComm, docType) {
 
     if (empDeduct > 0) {
         if (empDeductRow) empDeductRow.style.display = 'flex';
-        if (empDeductLabel) empDeductLabel.innerHTML = `<i class="fa-solid fa-minus"></i> ${labelText}`;
+        if (empDeductLabel) empDeductLabel.innerHTML = `<i class="fa-solid fa-minus"></i> ${empLabelText}`;
         if (empDeductVal) empDeductVal.innerText = formatNum(empDeduct);
         if (empNetRow) empNetRow.style.display = 'flex';
         if (empNetVal) empNetVal.innerText = formatNum(netEmpComm);
@@ -3040,7 +3043,7 @@ function applyCommissionDeductions(grossEmpComm, grossBoComm, docType) {
 
     if (boDeduct > 0) {
         if (boDeductRow) boDeductRow.style.display = 'flex';
-        if (boDeductLabel) boDeductLabel.innerHTML = `<i class="fa-solid fa-minus"></i> ${labelText}`;
+        if (boDeductLabel) boDeductLabel.innerHTML = `<i class="fa-solid fa-minus"></i> ${boLabelText}`;
         if (boDeductVal) boDeductVal.innerText = formatNum(boDeduct);
         if (boNetRow) boNetRow.style.display = 'flex';
         if (boNetVal) boNetVal.innerText = formatNum(netBoComm);
