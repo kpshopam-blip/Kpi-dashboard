@@ -1068,6 +1068,14 @@ function getRepairEls() {
 
 // ระบบสลับแท็บหน้าจอหลัก (Sales KPI vs Repairs vs Commission Voucher)
 window.switchView = function(view) {
+    if (view === 'commission') {
+        const isAuth = (sessionStorage.getItem('comm_authorized') === 'true') || window.isCommissionAuthorized;
+        if (!isAuth) {
+            openCommissionAuthModal();
+            return;
+        }
+    }
+
     const salesContainer = document.getElementById('sales-view-container');
     const repairContainer = document.getElementById('repair-view-container');
     const commContainer = document.getElementById('commission-view-container');
@@ -3056,6 +3064,102 @@ function applyCommissionDeductions(grossEmpComm, grossBoComm, docType) {
 // ฟังก์ชันสั่งพิมพ์ / เซฟเป็น PDF
 function printCommissionVoucher() {
     window.print();
+}
+
+// ==========================================
+// ระบบความปลอดภัย: รหัสผ่านเข้าหน้าสรุปจ่ายค่าคอม (PIN: 22920)
+// ==========================================
+window.isCommissionAuthorized = false;
+
+// เปิด Modal กรอกรหัสผ่าน
+function openCommissionAuthModal() {
+    const modal = document.getElementById('comm-auth-modal');
+    const pwdInput = document.getElementById('comm-auth-password-input');
+    const errMsg = document.getElementById('comm-auth-error-msg');
+    
+    if (errMsg) errMsg.style.display = 'none';
+    if (pwdInput) {
+        pwdInput.value = '';
+        pwdInput.type = 'password';
+    }
+    const eyeIcon = document.getElementById('comm-auth-eye-icon');
+    if (eyeIcon) eyeIcon.className = 'fa-solid fa-eye';
+
+    if (modal) {
+        if (typeof modal.showModal === 'function') {
+            modal.showModal();
+        } else {
+            modal.style.display = 'block';
+        }
+        setTimeout(() => {
+            if (pwdInput) pwdInput.focus();
+        }, 120);
+    }
+}
+
+// ปิด Modal กรอกรหัสผ่าน
+function closeCommissionAuthModal() {
+    const modal = document.getElementById('comm-auth-modal');
+    if (modal) {
+        if (typeof modal.close === 'function') {
+            modal.close();
+        } else {
+            modal.style.display = 'none';
+        }
+    }
+}
+
+// สลับแสดง/ซ่อนรหัสผ่าน
+function toggleCommPasswordVisibility() {
+    const pwdInput = document.getElementById('comm-auth-password-input');
+    const eyeIcon = document.getElementById('comm-auth-eye-icon');
+    if (!pwdInput) return;
+
+    if (pwdInput.type === 'password') {
+        pwdInput.type = 'text';
+        if (eyeIcon) eyeIcon.className = 'fa-solid fa-eye-slash';
+    } else {
+        pwdInput.type = 'password';
+        if (eyeIcon) eyeIcon.className = 'fa-solid fa-eye';
+    }
+}
+
+// ตรวจสอบความถูกต้องของรหัสผ่าน
+function verifyCommissionPassword() {
+    const pwdInput = document.getElementById('comm-auth-password-input');
+    const errMsg = document.getElementById('comm-auth-error-msg');
+    const entered = (pwdInput ? pwdInput.value : '').trim();
+
+    if (entered === '22920') {
+        window.isCommissionAuthorized = true;
+        try {
+            sessionStorage.setItem('comm_authorized', 'true');
+        } catch (e) {}
+
+        if (errMsg) errMsg.style.display = 'none';
+        closeCommissionAuthModal();
+
+        // ปลดล็อคสำเร็จ สลับเข้าหน้าค่าคอมมิชชันทันที
+        window.switchView('commission');
+    } else {
+        if (errMsg) {
+            errMsg.style.display = 'block';
+            errMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง';
+        }
+        if (pwdInput) {
+            pwdInput.select();
+            pwdInput.focus();
+        }
+    }
+}
+
+// ล็อคหน้าจอสรุปค่าคอม และกลับไปหน้า KPI ยอดขาย
+function lockCommissionView() {
+    window.isCommissionAuthorized = false;
+    try {
+        sessionStorage.removeItem('comm_authorized');
+    } catch (e) {}
+    window.switchView('sales');
 }
 
 
