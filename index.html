@@ -1,908 +1,1821 @@
 <!DOCTYPE html>
+
 <html lang="th">
+
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>KPI Dashboard ยอดขายและงานซ่อม KP Shop</title>
+
     <link rel="stylesheet" href="style.css">
+
     <!-- Google Fonts -->
+
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
     <!-- Font Awesome Icons -->
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
 </head>
+
 <body>
+
     <div class="dashboard-container">
+
         <!-- Header -->
+
         <header class="dashboard-header">
+
             <div class="header-title">
+
                 <i class="fa-solid fa-chart-pie" id="header-main-icon"></i>
+
                 <h1 id="header-main-title">ระบบติดตาม KPI & สรุปงานซ่อม KP Shop</h1>
+
             </div>
+
             <div class="header-status">
+
                 <span id="loading-status" class="status-badge loading"><i class="fa-solid fa-spinner fa-spin"></i> กำลังโหลดข้อมูล...</span>
+
             </div>
+
         </header>
 
+
+
         <!-- Main Navigation Tabs -->
+
         <nav class="main-tabs-nav">
+
             <button id="tab-btn-sales" class="main-tab-btn active" onclick="switchView('sales')">
+
                 <i class="fa-solid fa-chart-line"></i>
+
                 <span>KPI ยอดขายพนักงาน</span>
+
             </button>
+
             <button id="tab-btn-repair" class="main-tab-btn" onclick="switchView('repair')">
+
                 <i class="fa-solid fa-screwdriver-wrench"></i>
+
                 <span>ข้อมูลงานซ่อมช่าง</span>
+
             </button>
+
             <button id="tab-btn-commission" class="main-tab-btn" onclick="switchView('commission')">
+
                 <i class="fa-solid fa-file-invoice-dollar"></i>
+
                 <span>เอกสารสรุปจ่ายค่าคอม <i class="fa-solid fa-lock" style="font-size: 11px; margin-left: 4px; opacity: 0.7;"></i></span>
+
             </button>
+
         </nav>
 
+
+
         <!-- ========================================== -->
+
         <!-- VIEW 1: SALES KPI (หน้าเดิม) -->
+
         <!-- ========================================== -->
+
         <div id="sales-view-container" class="view-panel active">
+
             <!-- Filters Section -->
+
             <section class="filters-section panel">
+
                 <div class="filter-group">
+
                     <label for="employee-select"><i class="fa-solid fa-user"></i> พนักงาน:</label>
+
                     <select id="employee-select">
+
                         <option value="all">-- พนักงานทั้งหมด --</option>
+
                         <!-- Options will be populated by JS -->
+
                     </select>
+
                 </div>
+
                 <div class="filter-group">
+
                     <label for="start-date"><i class="fa-regular fa-calendar-days"></i> จากวันที่:</label>
+
                     <input type="date" id="start-date">
+
                 </div>
+
                 <div class="filter-group">
+
                     <label for="end-date">- ถึงวันที่:</label>
+
                     <input type="date" id="end-date">
+
                 </div>
+
                 <button id="btn-filter" class="btn-primary"><i class="fa-solid fa-magnifying-glass"></i> ค้นหา</button>
+
                 <button id="btn-reset" class="btn-secondary"><i class="fa-solid fa-rotate-right"></i> ล้างค่า</button>
+
             </section>
+
+
 
             <!-- Main KPI Section -->
+
             <section class="kpi-overview-section panel highlight-panel">
+
                 <h2><i class="fa-solid fa-trophy"></i> ภาพรวม KPI <span id="kpi-stars" style="float: right;"></span></h2>
+
                 <div class="kpi-progress-container">
+
                     <div class="kpi-meta">
+
                         <span class="kpi-label">ความคืบหน้า KPI: <span id="kpi-percentage-text">0.00%</span></span>
+
                         <span class="kpi-amount">ยอดรวม KPI: <span id="kpi-total-amount">฿0</span> / <span id="kpi-target-amount">฿200,000</span></span>
+
                     </div>
+
                     <div class="progress-bar-bg">
+
                         <div id="kpi-progress-bar" class="progress-bar-fill" style="width: 0%"></div>
+
                     </div>
+
                 </div>
+
             </section>
+
+
 
             <!-- Summary Cards Layout -->
+
             <div class="summary-grid">
+
                 <!-- Card 1: ACC -->
+
                 <div class="summary-card panel card-acc" onclick="handleFilter('ACC')" style="cursor: pointer;" title="คลิกเพื่อดูเฉพาะกลุ่ม ACC">
+
                     <div class="card-header">
+
                         <i class="fa-solid fa-headphones"></i>
+
                         <h3>กลุ่ม ACC</h3>
+
                     </div>
+
                     <div class="card-body">
+
                         <div id="acc-summary-container">
+
                             <!-- จะถูกสร้างอัตโนมัติจาก script.js ตามการตั้งค่า -->
+
                         </div>
+
                         <div class="stat-divider"></div>
+
                         <div class="stat-row total-row">
+
                             <span>รวม KPI กลุ่ม ACC</span>
+
                             <span id="kpi-acc-total" class="stat-value highlight">฿0</span>
+
                         </div>
+
                     </div>
+
                 </div>
+
+
 
                 <!-- Card 2: Phone1 & Trade-in -->
+
                 <div class="summary-card panel card-phone1" onclick="handleFilter('Phone1')" style="cursor: pointer;" title="คลิกเพื่อดูเฉพาะ มือถือ 1/แลกเงิน">
+
                     <div class="card-header">
+
                         <i class="fa-solid fa-mobile-screen"></i>
+
                         <h3>มือถือ 1 / แลกเงิน</h3>
+
                     </div>
+
                     <div class="card-body">
+
                         <div id="phone1-summary-container">
+
                             <!-- จะถูกสร้างอัตโนมัติจาก script.js ตามการตั้งค่า -->
+
                         </div>
+
                         <div class="stat-divider"></div>
+
                         <div class="stat-row total-row">
+
                             <span>รวม KPI มือถือ 1/แลกเงิน</span>
+
                             <span id="kpi-phone1-total" class="stat-value highlight">฿0</span>
+
                         </div>
+
                     </div>
+
                 </div>
+
+
 
                 <!-- Card 3: Phone2 -->
+
                 <div class="summary-card panel card-phone2" onclick="handleFilter('Phone2')" style="cursor: pointer;" title="คลิกเพื่อดูเฉพาะ มือถือ 2">
+
                     <div class="card-header">
+
                         <i class="fa-solid fa-mobile-retro"></i>
+
                         <h3>มือถือ 2</h3>
+
                     </div>
+
                     <div class="card-body">
+
                         <div id="phone2-summary-container">
+
                             <!-- จะถูกสร้างอัตโนมัติจาก script.js ตามการตั้งค่า -->
+
                         </div>
+
                         <div class="stat-divider"></div>
+
                         <div class="stat-row total-row">
+
                             <span>รวม KPI มือถือ 2</span>
+
                             <span id="kpi-phone2-total" class="stat-value highlight">฿0</span>
+
                         </div>
+
                     </div>
+
                 </div>
+
             </div>
+
+
 
             <!-- Ranking Section -->
+
             <section class="ranking-section panel">
+
                 <h2><i class="fa-solid fa-ranking-star"></i> อันดับยอดขายพนักงานแยกตามสาขา</h2>
+
                 <div id="ranking-container" class="ranking-grid">
+
                     <div class="text-center empty-state" style="width: 100%;">กำลังคำนวณการจัดอันดับ...</div>
+
                 </div>
+
             </section>
+
+
 
             <!-- Monthly Sales & Buyback Breakdown Section -->
+
             <section class="monthly-breakdown-section panel">
+
                 <div class="table-header-row" style="flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between;">
+
                     <h2><i class="fa-solid fa-calendar-week"></i> สรุปยอดขายตามรูปแบบการขายและรายเดือน</h2>
+
                     <div class="brand-filter-group">
+
                         <span class="filter-label"><i class="fa-solid fa-filter"></i> เลือกแบรนด์:</span>
+
                         <button class="btn-brand active" data-brand="all">ทั้งหมด</button>
+
                         <button class="btn-brand" data-brand="apple"><i class="fa-brands fa-apple"></i> เฉพาะ Apple</button>
+
                         <button class="btn-brand" data-brand="android"><i class="fa-brands fa-android"></i> เฉพาะ Android</button>
+
                     </div>
+
                 </div>
+
                 <div class="table-responsive">
+
                     <table id="monthly-breakdown-table" class="breakdown-table">
+
                         <thead id="monthly-breakdown-thead">
+
                             <!-- Dynamic Month Headers -->
+
                         </thead>
+
                         <tbody id="monthly-breakdown-tbody">
+
                             <tr>
+
                                 <td colspan="10" class="text-center empty-state">กำลังประมวลผลข้อมูล...</td>
+
                             </tr>
+
                         </tbody>
+
                         <tfoot id="monthly-breakdown-tfoot">
+
                             <!-- Footer Totals -->
+
                         </tfoot>
+
                     </table>
+
                 </div>
+
             </section>
+
+
 
             <!-- Data Table Section -->
+
             <section class="data-table-section panel">
+
                 <div class="table-header-row">
+
                     <h2><i class="fa-solid fa-list"></i> รายการขายที่นำมาคำนวณ KPI (<span id="record-count">0</span> รายการ)</h2>
+
                 </div>
+
                 <div class="table-responsive">
+
                     <table id="sales-table">
+
                         <thead>
+
                             <tr>
+
                                 <th>วันที่</th>
+
                                 <th>พนักงาน</th>
+
                                 <th>แหล่งข้อมูล</th>
+
                                 <th>ยี่ห้อ - รุ่น</th>
+
                                 <th>รูปแบบการขาย</th>
+
                                 <th class="text-right">ราคาขาย</th>
+
                                 <th class="text-right" style="color:#7f8c8d;">เงินดาวน์</th>
+
                                 <th class="text-right">ยอดจัด</th>
+
                                 <th class="text-center">%</th>
+
                                 <th class="text-right">KPI ที่ได้</th>
+
                             </tr>
+
                         </thead>
+
                         <tbody id="sales-table-body">
+
                             <tr>
+
                                 <td colspan="10" class="text-center empty-state">กำลังดึงข้อมูล หรือไม่มีข้อมูลในเงื่อนไขที่คุณเลือก</td>
+
                             </tr>
+
                         </tbody>
+
                     </table>
+
                 </div>
+
             </section>
+
         </div>
 
+
+
         <!-- ========================================== -->
+
         <!-- VIEW 2: REPAIR DASHBOARD (หน้างานซ่อมช่าง - ใหม่) -->
+
         <!-- ========================================== -->
+
         <div id="repair-view-container" class="view-panel" style="display: none;">
+
             <!-- Repair Filters Section -->
+
             <section class="filters-section panel">
+
                 <div class="filter-group">
+
                     <label for="repair-tech-select"><i class="fa-solid fa-user-gear"></i> ช่างผู้รับผิดชอบ:</label>
+
                     <select id="repair-tech-select">
+
                         <option value="all">-- ช่างทั้งหมด --</option>
+
                         <!-- Dynamic options -->
+
                     </select>
+
                 </div>
+
                 <div class="filter-group">
+
                     <label for="repair-customer-type"><i class="fa-solid fa-users"></i> ประเภทลูกค้า:</label>
+
                     <select id="repair-customer-type">
+
                         <option value="all">-- ทุกประเภทลูกค้า --</option>
+
                         <option value="ลูกค้าหน้าร้าน">ลูกค้าหน้าร้าน</option>
+
                         <option value="ลูกค้าออนไลน์">ลูกค้าออนไลน์</option>
+
                     </select>
+
                 </div>
+
                 <div class="filter-group">
+
                     <label for="repair-status-select"><i class="fa-solid fa-circle-check"></i> สถานะงาน:</label>
+
                     <select id="repair-status-select">
+
                         <option value="ลูกค้ารับเครื่องแล้ว">เฉพาะงานที่จบ (ลูกค้ารับเครื่องแล้ว)</option>
+
                         <option value="all">-- ทุกสถานะงาน --</option>
+
                         <option value="ไม่ซ่อมคืนลูกค้า">ไม่ซ่อมคืนลูกค้า</option>
+
                         <option value="รับเครื่องใหม่">รับเครื่องใหม่</option>
+
                     </select>
+
                 </div>
+
                 <div class="filter-group">
+
                     <label for="repair-start-date"><i class="fa-regular fa-calendar-days"></i> จากวันที่:</label>
+
                     <input type="date" id="repair-start-date">
+
                 </div>
+
                 <div class="filter-group">
+
                     <label for="repair-end-date">- ถึงวันที่:</label>
+
                     <input type="date" id="repair-end-date">
+
                 </div>
+
                 <button id="btn-repair-filter" class="btn-primary"><i class="fa-solid fa-magnifying-glass"></i> ค้นหา</button>
+
                 <button id="btn-repair-reset" class="btn-secondary"><i class="fa-solid fa-rotate-right"></i> ล้างค่า</button>
+
             </section>
+
+
 
             <!-- Repair Summary Cards -->
+
             <div class="summary-grid repair-summary-grid">
+
                 <!-- Card 1: Total Completed Jobs -->
+
                 <div class="summary-card panel card-repair-total highlight-panel">
+
                     <div class="card-header">
+
                         <i class="fa-solid fa-circle-check" style="color: #27ae60;"></i>
+
                         <h3>รวมงานที่จบทั้งหมด</h3>
+
                     </div>
+
                     <div class="card-body">
+
                         <div class="stat-row">
+
                             <span>จำนวนงานที่จบ</span>
+
                             <span id="repair-sum-total-count" class="stat-value count-badge">0 งาน</span>
+
                         </div>
+
                         <div class="stat-divider"></div>
+
                         <div class="stat-row total-row">
+
                             <span>ยอดเงินจริงรวม</span>
+
                             <span id="repair-sum-total-amount" class="stat-value highlight" style="color: #27ae60;">฿0</span>
+
                         </div>
+
                     </div>
+
                 </div>
+
+
 
                 <!-- Card 2: Storefront Customers -->
+
                 <div class="summary-card panel card-repair-store">
+
                     <div class="card-header">
+
                         <i class="fa-solid fa-store" style="color: #2980b9;"></i>
+
                         <h3>ลูกค้าหน้าร้าน</h3>
+
                     </div>
+
                     <div class="card-body">
+
                         <div class="stat-row">
+
                             <span>จำนวนงาน</span>
+
                             <span id="repair-sum-store-count" class="stat-value count-badge">0 งาน</span>
+
                         </div>
+
                         <div class="stat-divider"></div>
+
                         <div class="stat-row total-row">
+
                             <span>ยอดเงินรวม</span>
+
                             <span id="repair-sum-store-amount" class="stat-value highlight" style="color: #2980b9;">฿0</span>
+
                         </div>
+
                     </div>
+
                 </div>
+
+
 
                 <!-- Card 3: Online Customers -->
+
                 <div class="summary-card panel card-repair-online">
+
                     <div class="card-header">
+
                         <i class="fa-solid fa-globe" style="color: #8e44ad;"></i>
+
                         <h3>ลูกค้าออนไลน์</h3>
+
                     </div>
+
                     <div class="card-body">
+
                         <div class="stat-row">
+
                             <span>จำนวนงาน</span>
+
                             <span id="repair-sum-online-count" class="stat-value count-badge">0 งาน</span>
+
                         </div>
+
                         <div class="stat-divider"></div>
+
                         <div class="stat-row total-row">
+
                             <span>ยอดเงินรวม</span>
+
                             <span id="repair-sum-online-amount" class="stat-value highlight" style="color: #8e44ad;">฿0</span>
+
                         </div>
+
                     </div>
+
                 </div>
+
+
 
                 <!-- Card 4: Ticket Average -->
+
                 <div class="summary-card panel card-repair-avg">
+
                     <div class="card-header">
+
                         <i class="fa-solid fa-calculator" style="color: #d35400;"></i>
+
                         <h3>สถิติและค่าเฉลี่ย</h3>
+
                     </div>
+
                     <div class="card-body">
+
                         <div class="stat-row">
+
                             <span>สัดส่วน หน้าร้าน / ออนไลน์</span>
+
                             <span id="repair-sum-ratio" class="stat-value count-badge">0% / 0%</span>
+
                         </div>
+
                         <div class="stat-divider"></div>
+
                         <div class="stat-row total-row">
+
                             <span>เฉลี่ยต่องาน</span>
+
                             <span id="repair-sum-avg-amount" class="stat-value highlight" style="color: #d35400;">฿0</span>
+
                         </div>
+
                     </div>
+
                 </div>
+
             </div>
+
+
 
             <!-- Technician Performance Section -->
+
             <section class="ranking-section panel">
+
                 <h2><i class="fa-solid fa-award"></i> สรุปผลงานการจบงานของช่างแต่ละคน</h2>
+
                 <div id="technician-ranking-container" class="ranking-grid">
+
                     <div class="text-center empty-state" style="width: 100%;">กำลังประมวลผลข้อมูลช่าง...</div>
+
                 </div>
+
             </section>
+
+
 
             <!-- Repair Monthly Breakdown Section (ตารางเทียบรายเดือน) -->
+
             <section class="monthly-breakdown-section panel">
+
                 <div class="table-header-row" style="flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between;">
+
                     <h2><i class="fa-solid fa-calendar-days"></i> สรุปงานซ่อมตามประเภทลูกค้าและรายเดือน</h2>
+
                     <div class="brand-filter-group">
+
                         <span class="filter-label"><i class="fa-solid fa-filter"></i> เลือกแบรนด์:</span>
+
                         <button class="btn-repair-brand active" data-brand="all">ทั้งหมด</button>
+
                         <button class="btn-repair-brand" data-brand="apple"><i class="fa-brands fa-apple"></i> เฉพาะ Apple</button>
+
                         <button class="btn-repair-brand" data-brand="android"><i class="fa-brands fa-android"></i> เฉพาะ Android</button>
+
                         <button class="btn-repair-brand" data-brand="other">อื่นๆ</button>
+
                     </div>
+
                 </div>
+
                 <div class="table-responsive">
+
                     <table id="repair-monthly-breakdown-table" class="breakdown-table">
+
                         <thead id="repair-monthly-breakdown-thead">
+
                             <!-- Dynamic Month Headers -->
+
                         </thead>
+
                         <tbody id="repair-monthly-breakdown-tbody">
+
                             <tr>
+
                                 <td colspan="10" class="text-center empty-state">กำลังประมวลผลข้อมูล...</td>
+
                             </tr>
+
                         </tbody>
+
                         <tfoot id="repair-monthly-breakdown-tfoot">
+
                             <!-- Footer Totals -->
+
                         </tfoot>
+
                     </table>
+
                 </div>
+
             </section>
+
+
 
             <!-- Repair Detailed Data Table Section -->
+
             <section class="data-table-section panel">
+
                 <div class="table-header-row" style="flex-wrap: wrap; gap: 15px; justify-content: space-between; align-items: center;">
+
                     <h2><i class="fa-solid fa-list-check"></i> รายการงานซ่อม (<span id="repair-record-count">0</span> รายการ)</h2>
+
                     <div class="table-search-box">
+
                         <i class="fa-solid fa-magnifying-glass search-icon"></i>
+
                         <input type="text" id="repair-search-input" placeholder="ค้นหา รหัสงาน, ชื่อช่าง, รุ่น, อาการ...">
+
                     </div>
+
                 </div>
+
                 <div class="table-responsive">
+
                     <table id="repair-table">
+
                         <thead>
+
                             <tr>
+
                                 <th style="min-width: 130px;">วันที่ / เวลา</th>
+
                                 <th style="min-width: 120px;">รหัสงาน (JobID)</th>
+
                                 <th style="min-width: 170px;">ช่างผู้รับผิดชอบ</th>
+
                                 <th style="min-width: 160px;">อุปกรณ์ / ยี่ห้อ - รุ่น</th>
+
                                 <th style="min-width: 180px;">อาการเสีย / งานซ่อม</th>
+
                                 <th class="text-center" style="min-width: 130px;">สถานะ</th>
+
                                 <th class="text-center" style="min-width: 120px;">ประเภทลูกค้า</th>
+
                                 <th class="text-right" style="min-width: 110px;">ราคาจบงานจริง</th>
+
                                 <th class="text-center" style="min-width: 110px;">สลิปใบเสร็จ</th>
+
                                 <th class="text-center" style="min-width: 120px;">หลักฐานนัดรับ</th>
+
                             </tr>
+
                         </thead>
+
                         <tbody id="repair-table-body">
+
                             <tr>
+
                                 <td colspan="10" class="text-center empty-state">กำลังดึงข้อมูลงานซ่อม...</td>
+
                             </tr>
+
                         </tbody>
+
                     </table>
+
                 </div>
+
             </section>
+
         </div>
 
+
+
         <!-- ========================================== -->
+
         <!-- VIEW 3: COMMISSION VOUCHER (เอกสารสรุปจ่ายค่าคอม) -->
+
         <!-- ========================================== -->
+
         <div id="commission-view-container" class="view-panel" style="display: none;">
+
             <!-- Filter & Action Controls (ซ่อนตอนพิมพ์) -->
+
             <section class="filters-section panel no-print" style="margin-bottom: 20px;">
+
                 <div class="filter-group">
+
                     <label for="comm-doc-type"><i class="fa-solid fa-file-lines"></i> รูปแบบเอกสาร:</label>
+
                     <select id="comm-doc-type" onchange="handleCommDocTypeChange()">
+
                         <option value="weekly">1. สรุปเบิกจ่ายรอบสัปดาห์ (ขายส่ง & รับซื้อ)</option>
+
                         <option value="monthly">2. สรุปเบิกจ่ายรายเดือน (ขายสด iPhone มือ 2)</option>
+
                         <option value="backoffice">3. สรุปค่าคอมมิชชั่น ทีมหลังบ้าน (30 บ./เครื่อง)</option>
+
                     </select>
+
                 </div>
+
                 <div class="filter-group" id="comm-emp-group">
+
                     <label for="comm-employee-select"><i class="fa-solid fa-user"></i> พนักงาน:</label>
+
                     <select id="comm-employee-select">
+
                         <!-- รายชื่อพนักงานจะถูกโหลดจาก JS -->
+
                     </select>
+
                 </div>
+
                 <div class="filter-group">
+
                     <label for="comm-start-date"><i class="fa-regular fa-calendar-days"></i> รอบวันที่:</label>
+
                     <input type="date" id="comm-start-date">
+
                 </div>
+
                 <div class="filter-group">
+
                     <label for="comm-end-date">ถึงวันที่:</label>
+
                     <input type="date" id="comm-end-date">
+
                 </div>
+
                 <button id="btn-comm-filter" class="btn-primary" onclick="renderCommissionVoucher()">
+
                     <i class="fa-solid fa-magnifying-glass"></i> ออกเอกสาร
+
                 </button>
+
                 <button id="btn-comm-print" class="btn-primary" style="background: #27ae60;" onclick="printCommissionVoucher()">
+
                     <i class="fa-solid fa-print"></i> พิมพ์ / บันทึก PDF
+
                 </button>
+
                 <button id="btn-comm-lock" class="btn-secondary no-print" onclick="lockCommissionView()" title="ล็อคหน้าจอและออกจากหน้านี้" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">
+
                     <i class="fa-solid fa-lock"></i> ล็อคหน้าจอ
+
                 </button>
+
                 <button id="btn-comm-reset-exc" class="btn-secondary no-print" onclick="resetAllExcludedItems()" title="คืนค่ารายการที่ตัดออกทั้งหมดกลับมาคำนวณตามปกติ" style="display: none; background: #64748b; color: #fff;">
+
                     <i class="fa-solid fa-rotate-left"></i> คืนค่าที่ตัดออก (<span id="comm-exc-count-badge">0</span>)
+
                 </button>
+
             </section>
+
+
 
             <!-- แผงกรอกรายการหักเงินค่าคอมมิชชั่นเพิ่มเติม (ซ่อนตอนพิมพ์) -->
+
             <section class="comm-deduction-panel panel no-print" style="margin-bottom: 20px; background: #fffaf0; border: 1.5px dashed #f6ad55; padding: 12px 18px; border-radius: 8px;">
+
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+
                     <span style="font-weight: 600; color: #c05621; font-size: 13.5px; display: flex; align-items: center; gap: 8px;">
+
                         <i class="fa-solid fa-receipt"></i> รายการหักเงินค่าคอมมิชชั่นเพิ่มเติม (เช่น หักค่าส่งเคลมสินค้า)
+
                     </span>
+
                     <button type="button" class="btn-secondary" onclick="addCommDeductionRow()" style="padding: 4px 10px; font-size: 12px; background: #feebc8; color: #9c4221; border: 1px solid #fbd38d; cursor: pointer; border-radius: 4px; display: inline-flex; align-items: center; gap: 5px;">
+
                         <i class="fa-solid fa-plus"></i> เพิ่มรายการหัก
+
                     </button>
+
                 </div>
+
                 <div id="comm-deduction-list">
+
                     <!-- รายการหักจะถูกเรนเดอร์โดย JavaScript -->
+
                 </div>
+
                 <div id="comm-deduction-summary-text" style="font-size: 12.5px; color: #744210; margin-top: 8px; padding-top: 6px; border-top: 1px dashed #fbd38d; display: none;">
+
                     <!-- ข้อความสรุปเฉลี่ยหัก -->
+
                 </div>
+
             </section>
 
+
+
             <!-- A4 Document Simulation Container -->
+
             <div class="comm-paper-wrapper">
+
                 <div id="commission-paper" class="comm-paper-page">
+
                     
+
                     <!-- ส่วนหัวเอกสาร -->
+
                     <div class="comm-header-box">
+
                         <div class="comm-title-bar" id="comm-main-title">
+
                             สรุปเบิกจ่ายค่าคอมมิชชัน รายการขายเครื่องราคาส่ง
+
                         </div>
+
                         <div class="comm-meta-grid">
+
                             <div class="comm-meta-left">
+
                                 <span class="meta-label">ชื่อ - นามสกุล</span>
+
                                 <span class="meta-val" id="comm-doc-emp-name">-</span>
+
                             </div>
+
                             <div class="comm-meta-right">
+
                                 <span class="meta-label">รอบขายวันที่</span>
+
                                 <span class="meta-val" id="comm-doc-date-range">- ถึง -</span>
+
                             </div>
+
                         </div>
+
                     </div>
+
+
 
                     <!-- ตารางที่ 1: รายการขายเครื่องราคาส่ง (สีฟ้า) -->
+
                     <div class="comm-table-card" id="comm-sec-wholesale">
+
                         <div class="comm-sub-banner banner-blue">
+
                             สรุปเบิกจ่ายค่าคอมมิชชัน รายการขายเครื่องราคาส่ง
+
                         </div>
+
                         <div class="comm-table-wrap">
+
                             <table class="comm-doc-table table-blue" id="comm-table-wholesale">
+
                                 <thead>
+
                                     <tr>
+
                                         <th style="width: 6%;">ลำดับเอกสาร</th>
+
                                         <th style="width: 8%;">วันที่ขาย</th>
+
                                         <th style="width: 14%;">รุ่น</th>
+
                                         <th style="width: 5%;">ความจุ</th>
+
                                         <th style="width: 7%;">Model</th>
+
                                         <th style="width: 5%;">จำนวน</th>
+
                                         <th style="width: 8%;">ราคา/เครื่อง</th>
+
                                         <th style="width: 9%;">ยอดรวม (บาท)</th>
+
                                         <th style="width: 12%;">ชื่อลูกค้า / ร้านค้า</th>
+
                                         <th style="width: 6%;">ค่าคอม</th>
+
                                         <th style="width: 9%;">ประเภทการชำระ</th>
+
                                         <th style="width: 11%;">หมายเหตุ</th>
+
                                         <th class="no-print" style="width: 5%;">ตัดออก</th>
+
                                     </tr>
+
                                 </thead>
+
                                 <tbody id="comm-table-wholesale-body">
+
                                     <!-- Dynamic rows -->
+
                                 </tbody>
+
                                 <tfoot>
+
                                     <tr class="comm-foot-row">
+
                                         <td colspan="5" class="text-center font-bold">รวม</td>
+
                                         <td class="text-center font-bold" id="comm-ws-total-qty">0</td>
+
                                         <td class="text-center">-</td>
+
                                         <td class="text-right font-bold" id="comm-ws-total-amount">0</td>
+
                                         <td></td>
+
                                         <td class="text-right font-bold" id="comm-ws-total-comm">0</td>
+
                                         <td></td>
+
                                         <td></td>
+
                                         <td class="no-print"></td>
+
                                     </tr>
+
                                 </tfoot>
+
                             </table>
+
                         </div>
+
                     </div>
+
+
 
                     <!-- ตารางที่ 2: รายการขาย iPhone มือ 2 (สีเขียว) -->
+
                     <div class="comm-table-card" id="comm-sec-usedphone">
+
                         <div class="comm-sub-banner banner-green">
+
                             สรุปเบิกจ่ายค่าคอมมิชชัน รายการขาย Iphone มือ2
+
                         </div>
+
                         <div class="comm-table-wrap">
+
                             <table class="comm-doc-table table-green" id="comm-table-usedphone">
+
                                 <thead>
+
                                     <tr>
+
                                         <th style="width: 6%;">ลำดับเอกสาร</th>
+
                                         <th style="width: 8%;">วันที่ขาย</th>
+
                                         <th style="width: 14%;">รุ่น</th>
+
                                         <th style="width: 5%;">ความจุ</th>
+
                                         <th style="width: 7%;">Model</th>
+
                                         <th style="width: 5%;">จำนวน</th>
+
                                         <th style="width: 8%;">ราคา/เครื่อง</th>
+
                                         <th style="width: 9%;">ยอดรวม (บาท)</th>
+
                                         <th style="width: 12%;">ชื่อลูกค้า / ร้านค้า</th>
+
                                         <th style="width: 6%;">ค่าคอม</th>
+
                                         <th style="width: 9%;">ประเภทการชำระ</th>
+
                                         <th style="width: 11%;">หมายเหตุ</th>
+
                                         <th class="no-print" style="width: 5%;">ตัดออก</th>
+
                                     </tr>
+
                                 </thead>
+
                                 <tbody id="comm-table-usedphone-body">
+
                                     <!-- Dynamic rows -->
+
                                 </tbody>
+
                                 <tfoot>
+
                                     <tr class="comm-foot-row">
+
                                         <td colspan="5" class="text-center font-bold">รวม</td>
+
                                         <td class="text-center font-bold" id="comm-used-total-qty">0</td>
+
                                         <td class="text-center">-</td>
+
                                         <td class="text-right font-bold" id="comm-used-total-amount">0</td>
+
                                         <td></td>
+
                                         <td class="text-right font-bold" id="comm-used-total-comm">0</td>
+
                                         <td></td>
+
                                         <td></td>
+
                                         <td class="no-print"></td>
+
                                     </tr>
+
                                 </tfoot>
+
                             </table>
+
                         </div>
+
                     </div>
+
+
 
                     <!-- ตารางที่ 3: รายการรับซื้อเครื่อง iPhone (สีส้ม/ชมพู) -->
+
                     <div class="comm-table-card" id="comm-sec-buyback">
+
                         <div class="comm-sub-banner banner-pink">
+
                             สรุปเบิกจ่ายค่าคอมมิชชัน รายการรับซื้อเครื่อง (iPhone)
+
                         </div>
+
                         <div class="comm-table-wrap">
+
                             <table class="comm-doc-table table-pink" id="comm-table-buyback">
+
                                 <thead>
+
                                     <tr>
+
                                         <th style="width: 6%;">ลำดับเอกสาร</th>
+
                                         <th style="width: 8%;">วันที่รับซื้อ</th>
+
                                         <th style="width: 14%;">รุ่น</th>
+
                                         <th style="width: 5%;">ความจุ</th>
+
                                         <th style="width: 7%;">Model/สี</th>
+
                                         <th style="width: 5%;">จำนวน</th>
+
                                         <th style="width: 8%;">ราคา/เครื่อง</th>
+
                                         <th style="width: 9%;">ยอดรวม (บาท)</th>
+
                                         <th style="width: 12%;">ชื่อลูกค้า / ร้านค้า</th>
+
                                         <th style="width: 6%;">ค่าคอม</th>
+
                                         <th style="width: 9%;">ประเภทการชำระ</th>
+
                                         <th style="width: 11%;">หมายเหตุ</th>
+
                                         <th class="no-print" style="width: 5%;">ตัดออก</th>
+
                                     </tr>
+
                                 </thead>
+
                                 <tbody id="comm-table-buyback-body">
+
                                     <!-- Dynamic rows -->
+
                                 </tbody>
+
                                 <tfoot>
+
                                     <tr class="comm-foot-row">
+
                                         <td colspan="5" class="text-center font-bold">รวม</td>
+
                                         <td class="text-center font-bold" id="comm-bb-total-qty">0</td>
+
                                         <td class="text-center">-</td>
+
                                         <td class="text-right font-bold" id="comm-bb-total-amount">0</td>
+
                                         <td></td>
+
                                         <td class="text-right font-bold" id="comm-bb-total-comm">0</td>
+
                                         <td></td>
+
                                         <td></td>
+
                                         <td class="no-print"></td>
+
                                     </tr>
+
                                 </tfoot>
+
                             </table>
+
                         </div>
+
                     </div>
+
+
 
                     <!-- ตารางที่ 4: รายการที่ไม่คิดค่าคอมมิชชัน (รายการที่ตัดออก) (สีเทา-แดง/ส้ม) -->
+
                     <div class="comm-table-card" id="comm-sec-excluded" style="display: none;">
+
                         <div class="comm-sub-banner banner-excluded">
+
                             <i class="fa-solid fa-ban"></i> รายการที่ไม่คิดค่าคอมมิชชัน (รายการที่ตัดออก)
+
                         </div>
+
                         <div class="comm-table-wrap">
+
                             <table class="comm-doc-table table-excluded" id="comm-table-excluded">
+
                                 <thead>
+
                                     <tr>
+
                                         <th style="width: 6%;">ลำดับ</th>
+
                                         <th style="width: 9%;">วันที่</th>
+
                                         <th style="width: 9%;">ประเภท</th>
+
                                         <th style="width: 14%;">รุ่น / ความจุ / Model</th>
+
                                         <th style="width: 6%;">จำนวน</th>
+
                                         <th style="width: 8%;">ราคา/เครื่อง</th>
+
                                         <th style="width: 9%;">ยอดรวม</th>
+
                                         <th style="width: 12%;">ชื่อลูกค้า / ร้านค้า</th>
+
                                         <th style="width: 21%;">เหตุผลที่ตัดออก (ไม่จ่ายค่าคอม)</th>
+
                                         <th class="no-print" style="width: 6%;">จัดการ</th>
+
                                     </tr>
+
                                 </thead>
+
                                 <tbody id="comm-table-excluded-body">
+
                                     <!-- Dynamic rows -->
+
                                 </tbody>
+
                                 <tfoot>
+
                                     <tr class="comm-foot-row">
+
                                         <td colspan="4" class="text-center font-bold">รวมรายการที่ตัดออก</td>
+
                                         <td class="text-center font-bold text-red" id="comm-exc-total-qty">0</td>
+
                                         <td class="text-center">-</td>
+
                                         <td class="text-right font-bold text-red" id="comm-exc-total-amount">0</td>
+
                                         <td colspan="2" class="text-center font-bold text-red">ไม่คิดค่าคอมมิชชัน</td>
+
                                         <td class="no-print"></td>
+
                                     </tr>
+
                                 </tfoot>
+
                             </table>
+
                         </div>
+
                     </div>
+
+
 
                     <!-- ส่วนสรุปท้ายเอกสาร และ ช่องลงนามอนุมัติ (3 คอลัมน์) -->
+
                     <div class="comm-doc-footer-grid">
+
                         <!-- คอลัมน์ที่ 1: สรุปยอดเงินของพนักงาน & หลังบ้าน -->
+
                         <div class="comm-footer-col comm-summary-box-col">
+
                             <!-- กล่องสรุปเซลส์ -->
+
                             <div class="comm-box-card comm-emp-sum-card" id="comm-box-emp-summary">
+
                                 <div class="comm-box-card-header font-bold" id="comm-sum-emp-title">
+
                                     ชื่อพนักงาน
+
                                 </div>
+
                                 <div class="comm-sum-line-row" id="comm-row-sum-ws-qty">
+
                                     <span>รวม ขายส่ง</span>
+
                                     <span><b id="comm-sum-ws-qty">0</b> เครื่อง</span>
+
                                 </div>
+
                                 <div class="comm-sum-line-row" id="comm-row-sum-ws-comm">
+
                                     <span>รับค่าคอม</span>
+
                                     <span><b id="comm-sum-ws-comm">0</b> บาท</span>
+
                                 </div>
+
                                 <div class="comm-sum-line-row" id="comm-row-sum-used-qty">
+
                                     <span>รวม ขายมือ 2</span>
+
                                     <span><b id="comm-sum-used-qty">0</b> เครื่อง</span>
+
                                 </div>
+
                                 <div class="comm-sum-line-row" id="comm-row-sum-used-comm">
+
                                     <span>รับค่าคอม</span>
+
                                     <span><b id="comm-sum-used-comm">0</b> บาท</span>
+
                                 </div>
+
                                 <div class="comm-sum-line-row" id="comm-row-sum-bb-qty">
+
                                     <span>รวม รับซื้อ</span>
+
                                     <span><b id="comm-sum-bb-qty">0</b> เครื่อง</span>
+
                                 </div>
+
                                 <div class="comm-sum-line-row" id="comm-row-sum-bb-comm">
+
                                     <span>รับค่าคอม</span>
+
                                     <span><b id="comm-sum-bb-comm">0</b> บาท</span>
+
                                 </div>
+
                                 <div class="comm-sum-line-row comm-row-excluded" id="comm-row-sum-excluded" style="display: none;">
+
                                     <span class="text-red font-bold"><i class="fa-solid fa-ban"></i> ตัดออก (ไม่จ่ายคอม)</span>
+
                                     <span class="text-red font-bold"><b id="comm-sum-exc-qty">0</b> เครื่อง</span>
+
                                 </div>
+
                                 <div class="comm-sum-line-row total-highlight" id="comm-row-emp-gross">
+
                                     <span class="font-bold">รวมรับค่าคอม</span>
+
                                     <span class="font-bold"><b id="comm-sum-grand-total">0</b> บาท</span>
+
                                 </div>
+
                                 <div class="comm-sum-line-row comm-row-deduct" id="comm-row-emp-deduct" style="display: none;">
+
                                     <span class="font-bold" id="comm-emp-deduct-label"><i class="fa-solid fa-minus"></i> หักค่าใช้จ่าย</span>
+
                                     <span class="font-bold">-<b id="comm-emp-deduct-val">0</b> บาท</span>
+
                                 </div>
+
                                 <div class="comm-sum-line-row total-highlight net-highlight" id="comm-row-emp-net" style="display: none;">
+
                                     <span class="font-bold">ยอดรับสุทธิ</span>
+
                                     <span class="font-bold"><b id="comm-sum-emp-net">0</b> บาท</span>
+
                                 </div>
+
                             </div>
+
+
 
                             <!-- กล่องสรุปทีมหลังบ้าน (30 บ./เครื่อง) -->
+
                             <div class="comm-box-card comm-bo-sum-card" id="comm-box-bo-summary">
+
                                 <div class="comm-box-card-header font-bold">
+
                                     ค่าคอมมิชชั่น ทีมหลังบ้าน
+
                                 </div>
+
                                 <div class="comm-sum-line-row">
+
                                     <span>รวม</span>
+
                                     <span><b id="comm-bo-sum-qty">0</b> เครื่อง</span>
+
                                 </div>
+
                                 <div class="comm-sum-line-row total-highlight" id="comm-row-bo-gross">
+
                                     <span>รับค่าคอม</span>
+
                                     <span><b id="comm-bo-sum-comm">0</b> บาท</span>
+
                                 </div>
+
                                 <div class="comm-sum-line-row comm-row-deduct" id="comm-row-bo-deduct" style="display: none;">
+
                                     <span class="font-bold" id="comm-bo-deduct-label"><i class="fa-solid fa-minus"></i> หักค่าใช้จ่าย</span>
+
                                     <span class="font-bold">-<b id="comm-bo-deduct-val">0</b> บาท</span>
+
                                 </div>
+
                                 <div class="comm-sum-line-row total-highlight net-highlight" id="comm-row-bo-net" style="display: none;">
+
                                     <span class="font-bold">ยอดรับสุทธิ</span>
+
                                     <span class="font-bold"><b id="comm-sum-bo-net">0</b> บาท</span>
+
                                 </div>
+
                             </div>
+
                         </div>
+
+
 
                         <!-- คอลัมน์ที่ 2: หมายเหตุเกณฑ์การจ่าย -->
+
                         <div class="comm-footer-col comm-rules-col">
+
                             <div class="comm-rules-content">
+
                                 <div class="rule-block">
+
                                     <span class="rule-tag font-bold text-red">หมายเหตุ</span>
+
                                     <span class="rule-text">ขายส่ง เซลส์ผู้ขาย ได้รับ 70 บาท / เครื่อง</span>
+
                                 </div>
+
                                 <div class="rule-block">
+
                                     <span class="rule-indent">ขายส่ง ทีมหลังบ้าน ได้รับ 30 บาท / เครื่อง</span>
+
                                 </div>
+
                                 <div class="rule-block mt-2">
+
                                     <span class="rule-tag font-bold text-red">หมายเหตุ</span>
+
                                     <span class="rule-text font-bold">รับซื้อเครื่องมือสองหน้าร้าน</span>
+
                                 </div>
+
                                 <div class="rule-block">
+
                                     <span class="rule-indent">เซลส์ผู้รับซื้อ : ได้รับ เครื่องละ 100-300 บาท</span>
+
                                 </div>
+
                                 <div class="rule-block">
+
                                     <span class="rule-indent">เครื่องราคา 1 - 9,999 รับค่าคอม 100 บาท</span>
+
                                 </div>
+
                                 <div class="rule-block">
+
                                     <span class="rule-indent">เครื่องราคา 10,000 - 14,999 รับค่าคอม 150 บาท</span>
+
                                 </div>
+
                                 <div class="rule-block">
+
                                     <span class="rule-indent">เครื่องราคา 15,000 - 20,000 รับค่าคอม 200 บาท</span>
+
                                 </div>
+
                                 <div class="rule-block">
+
                                     <span class="rule-indent">เครื่องราคา 20,001 ขึ้นไป รับค่าคอม 300 บาท</span>
+
                                 </div>
+
                                 <div class="rule-block mt-2">
+
                                     <span class="rule-tag font-bold text-red">หมายเหตุ</span>
+
                                     <span class="rule-text font-bold">ขายสด iPhone มือ 2 หน้าร้าน</span>
+
                                 </div>
+
                                 <div class="rule-block">
+
                                     <span class="rule-indent">เงื่อนไขรับสิทธิ์: ขายขั้นต่ำ 5 เครื่อง / เดือน</span>
+
                                 </div>
+
                                 <div class="rule-block">
+
                                     <span class="rule-indent">เรทตามราคา: 10k-14.9k: 100บ. | 15k-20k: 200บ. | 20k+: 300บ.</span>
+
                                 </div>
+
                             </div>
+
                         </div>
+
+
 
                         <!-- คอลัมน์ที่ 3: ช่องลงนามอนุมัติ -->
+
                         <div class="comm-footer-col comm-signature-col">
+
                             <div class="comm-sign-block">
+
                                 <div class="sign-row-wrapper">
+
                                     <span class="sign-label-left">ลงชื่อ</span>
+
                                     <div class="sign-center-content">
+
                                         <div class="sign-dotted-line">........................................</div>
+
                                         <div class="sign-name">( นางสาว เยาวพา คำสูงเนิน )</div>
+
                                         <div class="sign-date">วันที่ ............./............./..............</div>
+
                                     </div>
+
                                     <span class="sign-label-right">ฝ่ายการเงิน</span>
+
                                 </div>
+
                             </div>
+
+
 
                             <div class="comm-approval-block">
+
                                 <div class="approval-choice">
+
                                     การอนุมัติ &nbsp;&nbsp;&nbsp; 
+
                                     <span class="checkbox-box">▢</span> อนุมัติ &nbsp;&nbsp;&nbsp; 
+
                                     <span class="checkbox-box">▢</span> ไม่อนุมัติ
+
                                 </div>
+
                                 <div class="sign-row-wrapper mt-3">
+
                                     <span class="sign-label-left">ลงชื่อ</span>
+
                                     <div class="sign-center-content">
+
                                         <div class="sign-dotted-line">........................................</div>
+
                                         <div class="sign-name">( นาย คณพศ โทสูงเนิน )</div>
+
                                         <div class="sign-date">วันที่ ............./............./..............</div>
+
                                     </div>
+
                                     <span class="sign-label-right">ผู้อนุมัติ</span>
+
                                 </div>
+
                             </div>
+
                         </div>
+
                     </div>
 
+
+
                 </div>
+
             </div>
+
         </div>
+
     </div>
 
+
+
     <!-- Dialog Modal สำหรับระบุเหตุผลการตัดออกไม่คิดค่าคอม (no-print) -->
+
     <dialog id="comm-exclude-modal" class="comm-modal-dialog no-print">
+
         <div class="comm-modal-content">
+
             <div class="comm-modal-header">
+
                 <h3><i class="fa-solid fa-ban text-red"></i> ระบุเหตุผลการตัดออก (ไม่จ่ายค่าคอม)</h3>
+
                 <button type="button" class="btn-modal-close" onclick="closeExcludeModal()">&times;</button>
+
             </div>
+
             <div class="comm-modal-body">
+
                 <div class="exclude-item-preview" id="exclude-modal-item-preview">
+
                     <!-- ข้อมูลรายการสินค้าที่จะตัดออก -->
+
                 </div>
+
+
 
                 <!-- ส่วนเลือกจำนวนเครื่องที่ต้องการตัดออก -->
+
                 <div class="exclude-qty-control-box" id="exclude-qty-control-box" style="margin-bottom: 14px;">
+
                     <label class="modal-label"><i class="fa-solid fa-calculator text-amber"></i> จำนวนเครื่องที่ต้องการตัดออก:</label>
+
                     <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+
                         <div class="qty-stepper" style="display: inline-flex; align-items: center; border: 1.5px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #fff;">
+
                             <button type="button" class="btn-qty-step" onclick="changeExcludeQtyStep(-1)" style="border: none; background: #f1f5f9; padding: 6px 14px; font-size: 16px; font-weight: bold; cursor: pointer; color: #334155;">-</button>
+
                             <input type="number" id="exclude-qty-input" min="1" max="1" value="1" oninput="updateExcludeQtyCalculation()" style="width: 55px; border: none; text-align: center; font-weight: 700; font-size: 15px; color: #0f172a; padding: 6px 0; outline: none;">
+
                             <button type="button" class="btn-qty-step" onclick="changeExcludeQtyStep(1)" style="border: none; background: #f1f5f9; padding: 6px 14px; font-size: 16px; font-weight: bold; cursor: pointer; color: #334155;">+</button>
+
                         </div>
+
                         <span style="font-size: 13px; color: #475569;" id="exclude-qty-summary-text">
+
                             จากทั้งหมด <b id="exclude-qty-total-display">1</b> เครื่อง (เหลือรับค่าคอม <b id="exclude-qty-remain-display" class="text-green">0</b> เครื่อง)
+
                         </span>
+
+                    </div>
+
+                
+                    <div style="margin-top: 8px; font-size: 12px; color: #0284c7; background: #f0f9ff; border: 1px solid #bae6fd; padding: 6px 10px; border-radius: 6px; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <span>การตัดออกนี้มีผลเฉพาะค่าคอมของฝ่ายขายหน้าร้าน ส่วนค่าคอมทีมหลังบ้าน (30 บ./เครื่อง) ยังได้รับตามปกติเหมือนเดิม</span>
                     </div>
                 </div>
+
                 
+
                 <label class="modal-label"><i class="fa-solid fa-bolt"></i> เลือกเหตุผลด่วน:</label>
+
                 <div class="quick-reason-pills" id="quick-reason-pills">
+
                     <button type="button" class="reason-pill" onclick="selectQuickReason('ขายราคาพิเศษ / ต่ำกว่าราคามาตรฐาน')">🏷️ ขายราคาพิเศษ / ต่ำกว่ามาตรฐาน</button>
+
                     <button type="button" class="reason-pill" onclick="selectQuickReason('ตกลงไม่คิดค่าคอมมิชชัน')">🤝 ตกลงไม่คิดค่าคอมมิชชัน</button>
+
                     <button type="button" class="reason-pill" onclick="selectQuickReason('ขายต่ำกว่าทุน')">📉 ขายต่ำกว่าทุน</button>
+
                     <button type="button" class="reason-pill" onclick="selectQuickReason('เครื่องเคลม / เปลี่ยนเครื่อง')">🔄 เครื่องเคลม / เปลี่ยนเครื่อง</button>
+
                     <button type="button" class="reason-pill" onclick="selectQuickReason('ลูกค้ายกเลิก / คืนเครื่อง')">❌ ลูกค้ายกเลิก / คืนเครื่อง</button>
+
                     <button type="button" class="reason-pill" onclick="selectQuickReason('รายการบันทึกผิด / ซ้ำซ้อน')">⚠️ บันทึกผิด / ซ้ำซ้อน</button>
+
                 </div>
+
+
 
                 <label for="exclude-reason-input" class="modal-label mt-2"><i class="fa-regular fa-comment-dots"></i> ระบุเหตุผล หรือรายละเอียดเพิ่มเติม:</label>
+
                 <textarea id="exclude-reason-input" rows="3" class="modal-textarea" placeholder="พิมพ์เหตุผลที่ตัดออกรายการนี้ เช่น ขายราคาพาร์ทเนอร์พิเศษ หรือระบุเหตุผลเอง..."></textarea>
+
             </div>
+
             <div class="comm-modal-footer">
+
                 <button type="button" class="btn-modal-cancel" onclick="closeExcludeModal()">ยกเลิก</button>
+
                 <button type="button" class="btn-modal-confirm" onclick="confirmExcludeItem()">
+
                     <i class="fa-solid fa-check"></i> ยืนยันตัดออก (ไม่จ่ายคอม)
+
                 </button>
+
             </div>
+
         </div>
+
     </dialog>
+
+
 
     <!-- Dialog Modal ป้อนรหัสผ่านเพื่อเข้าสู่หน้าสรุปจ่ายค่าคอม (no-print) -->
+
     <dialog id="comm-auth-modal" class="comm-modal-dialog no-print" style="max-width: 400px; border-radius: 14px; border: none;">
+
         <div class="comm-modal-content" style="padding: 24px 20px;">
+
             <div style="text-align: center; margin-bottom: 16px;">
+
                 <div style="width: 52px; height: 52px; border-radius: 50%; background: #eff6ff; color: #2563eb; display: inline-flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 10px;">
+
                     <i class="fa-solid fa-shield-halved"></i>
+
                 </div>
+
                 <h3 style="margin: 0; font-size: 18px; color: #1e293b; font-weight: 700;">กรุณาใส่รหัสผ่าน</h3>
+
                 <p style="margin: 6px 0 0 0; font-size: 12.5px; color: #64748b;">
+
                     หน้านี้จำกัดสิทธิ์เฉพาะผู้มีรหัสผ่านเข้าใช้งานเท่านั้น
+
                 </p>
+
             </div>
 
+
+
             <form onsubmit="event.preventDefault(); verifyCommissionPassword();">
+
                 <div style="position: relative; margin-bottom: 12px;">
+
                     <input type="password" 
+
                            id="comm-auth-password-input" 
+
                            placeholder="•••••" 
+
                            maxlength="20"
+
                            autocomplete="off"
+
                            style="width: 100%; box-sizing: border-box; padding: 10px 42px 10px 14px; font-size: 20px; font-family: inherit; border: 1.5px solid #cbd5e1; border-radius: 8px; text-align: center; letter-spacing: 5px; outline: none; transition: border-color 0.2s;"
+
                            onfocus="this.style.borderColor='#3b82f6'"
+
                            onblur="this.style.borderColor='#cbd5e1'" />
+
                     <button type="button" 
+
                             onclick="toggleCommPasswordVisibility()" 
+
                             style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 14px; padding: 6px;"
+
                             title="แสดง/ซ่อนรหัสผ่าน">
+
                         <i id="comm-auth-eye-icon" class="fa-solid fa-eye"></i>
+
                     </button>
+
                 </div>
+
                 
+
                 <div id="comm-auth-error-msg" style="display: none; color: #dc2626; font-size: 12.5px; text-align: center; margin-bottom: 14px; background: #fef2f2; padding: 6px 10px; border-radius: 6px; border: 1px solid #fca5a5;">
+
                     <i class="fa-solid fa-circle-exclamation"></i> รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง
+
                 </div>
+
+
 
                 <div style="display: flex; gap: 10px; margin-top: 6px;">
+
                     <button type="button" 
+
                             class="btn-modal-cancel" 
+
                             onclick="closeCommissionAuthModal()" 
+
                             style="flex: 1; padding: 9px; border-radius: 6px; font-size: 13.5px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; cursor: pointer; font-weight: 600;">
+
                         ยกเลิก
+
                     </button>
+
                     <button type="submit" 
+
                             class="btn-modal-confirm" 
+
                             style="flex: 1.5; padding: 9px; border-radius: 6px; font-size: 13.5px; background: #2563eb; color: #fff; border: none; cursor: pointer; font-weight: 600;">
+
                         <i class="fa-solid fa-unlock"></i> เข้าสู่หน้าเอกสาร
+
                     </button>
+
                 </div>
+
             </form>
+
         </div>
+
     </dialog>
 
+
+
     <!-- Scripts -->
+
     <script src="script.js"></script>
+
 </body>
+
 </html>
+
